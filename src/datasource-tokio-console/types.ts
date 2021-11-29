@@ -1,11 +1,11 @@
 import { DataQuery, DataSourceJsonData } from '@grafana/data';
 
 export interface ConsoleQuery extends DataQuery {
-  streamPath?: string;
+  stream?: string;
 }
 
 export const defaultQuery: Partial<ConsoleQuery> = {
-  streamPath: 'tasks',
+  stream: 'tasks',
 };
 
 /**

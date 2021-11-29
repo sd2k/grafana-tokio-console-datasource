@@ -652,7 +652,11 @@ impl backend::DataService for ConsolePlugin {
             .into_frame("foo");
 
             if let Some(uid) = &uid {
-                if let Some("tasks") = x.json.get("streamPath").and_then(serde_json::value::Value::as_str) {
+                if let Some("tasks") = x
+                    .json
+                    .get("stream")
+                    .and_then(serde_json::value::Value::as_str)
+                {
                     frame.set_channel(format!("ds/{}/tasks", uid).parse().unwrap());
                 }
             }

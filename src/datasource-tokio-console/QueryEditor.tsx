@@ -1,28 +1,39 @@
 import { defaults } from 'lodash';
 
-import React, { ChangeEvent, PureComponent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import React, { PureComponent } from 'react';
+import { Select } from '@grafana/ui';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
 import { defaultQuery, DataSourceOptions, ConsoleQuery } from './types';
 
-const { FormField } = LegacyForms;
 
 type Props = QueryEditorProps<DataSource, ConsoleQuery, DataSourceOptions>;
 
+const streamOptions = [
+  { label: 'Tasks', value: 'tasks', description: 'Tasks list' },
+  { label: 'Task details', value: 'task details', description: 'Task details' },
+  { label: 'Resources', value: 'resources', description: 'Resources list' },
+];
+
 export class QueryEditor extends PureComponent<Props> {
-  onStreamPathChange = (event: ChangeEvent<HTMLInputElement>) => {
+  onStreamChange = (event: SelectableValue<string>) => {
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, streamPath: event.target.value });
+    onChange({ ...query, stream: event.value });
     onRunQuery();
   };
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
-    const { streamPath } = query;
+    const { stream } = query;
     return (
       <div className="gf-form">
-        <FormField width={4} value={streamPath} onChange={this.onStreamPathChange} label="Path" />
+        <Select
+          options={streamOptions}
+          value={stream}
+          onChange={(v) => {
+            this.onStreamChange(v);
+          }}
+        />
       </div>
     );
   }
