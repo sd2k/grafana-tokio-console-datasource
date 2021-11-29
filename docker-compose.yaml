@@ -1,0 +1,56 @@
+version: "3"
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    restart: on-failure
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_DEFAULT_APP_MODE: development
+      GF_LOG_LEVEL: debug
+      GF_LOG_FILTERS: plugins:debug
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "true"
+      GF_PLUGINS_ENABLE_ALPHA: "true"
+      GF_SERVER_ROOT_URL: http://admin:admin@grafana:3000
+      JAEGER_AGENT_HOST: "jaeger"
+      RUST_LOG: grafana_plugin_sdk=debug,info
+    volumes:
+      - "./grafana/provisioning:/etc/grafana/provisioning"
+      - ".:/var/lib/grafana/plugins/grafana-tokio-console-datasource"
+
+  frontend:
+    image: node:14
+    command:
+      - sh
+      - -c
+      - 'yarn && yarn start'
+    working_dir: /home/node/app
+    volumes:
+      - ".:/home/node/app"
+
+  backend:
+    build: 
+      context: backend
+      dockerfile: Dockerfile
+    volumes:
+      - "/usr/local/cargo"
+      - "/usr/src/backend/target"
+      - "./backend:/usr/src/backend"
+      - "./dist:/usr/src/dist"
+    command:
+      - cargo
+      - watch
+      - --why
+      - -x
+      - build
+      - -s
+      - rm -rf /usr/src/dist/gpx_tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/gpx_tokio-console-datasource_linux_arm64 && nc -z grafana 10001
