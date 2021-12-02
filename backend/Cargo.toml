@@ -16,6 +16,7 @@ futures-core = "0.3.17"
 futures-util = "0.3.17"
 grafana-plugin-sdk = { path = "../../../rust/grafana-plugin-sdk-rust" }
 h2 = "0.3.7"
+hdrhistogram = "7.4.0"
 once_cell = "1.8.0"
 prost-types = "0.9.0"
 rand = "0.8.4"

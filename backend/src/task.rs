@@ -5,6 +5,7 @@ use std::{
 };
 
 use console_api::{tasks::Stats, Location};
+use hdrhistogram::Histogram;
 
 use crate::{
     metadata::{MetaId, Metadata},
@@ -24,6 +25,7 @@ pub struct Task {
     /// Currently active warnings for this task.
     // pub warnings: Vec<Linter<Task>>,
     pub location: String,
+    pub histogram: Option<Histogram<u64>>,
 }
 
 impl Task {
@@ -83,6 +85,7 @@ impl Task {
             stats,
             target: meta.target.clone(),
             location,
+            histogram: None,
         };
         Some(task)
     }
@@ -187,6 +190,51 @@ impl Task {
         // Before the first poll, the task is waiting on the executor to run it
         // for the first time.
         self.total_polls() == 0 || self.last_wake() > self.stats.last_poll_started
+    }
+
+    /// From the histogram, build a visual representation by trying to make as
+    // many buckets as the width of the render area.
+    pub(crate) fn make_chart_data(&self, width: u16) -> (Vec<u64>, HistogramMetadata) {
+        self.histogram
+            .as_ref()
+            .map(|histogram| {
+                let step_size =
+                    ((histogram.max() - histogram.min()) as f64 / width as f64).ceil() as u64 + 1;
+                // `iter_linear` panics if step_size is 0
+                let data = if step_size > 0 {
+                    let mut found_first_nonzero = false;
+                    let data: Vec<u64> = histogram
+                        .iter_linear(step_size)
+                        .filter_map(|value| {
+                            let count = value.count_since_last_iteration();
+                            // Remove the 0s from the leading side of the buckets.
+                            // Because HdrHistogram can return empty buckets depending
+                            // on its internal state, as it approximates values.
+                            if count == 0 && !found_first_nonzero {
+                                None
+                            } else {
+                                found_first_nonzero = true;
+                                Some(count)
+                            }
+                        })
+                        .collect();
+                    data
+                } else {
+                    Vec::new()
+                };
+                let max_bucket = data.iter().max().copied().unwrap_or_default();
+                let min_bucket = data.iter().min().copied().unwrap_or_default();
+                (
+                    data,
+                    HistogramMetadata {
+                        max_value: histogram.max(),
+                        min_value: histogram.min(),
+                        max_bucket,
+                        min_bucket,
+                    },
+                )
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -392,9 +440,7 @@ impl FieldValue {
     /// Truncates paths including `.cargo/registry`.
     fn truncate_registry_path(self) -> Self {
         match self {
-            FieldValue::Str(s) | FieldValue::Debug(s) => {
-                Self::Debug(truncate_registry_path(s))
-            }
+            FieldValue::Str(s) | FieldValue::Debug(s) => Self::Debug(truncate_registry_path(s)),
 
             f => f,
         }
@@ -439,4 +485,16 @@ impl TaskState {
             Self::Completed => COMPLETED_UTF8,
         }
     }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct HistogramMetadata {
+    /// The max recorded value in the histogram. This is the label for the bottom-right in the chart
+    pub(crate) max_value: u64,
+    /// The min recorded value in the histogram.
+    pub(crate) min_value: u64,
+    /// The value of the bucket with the greatest quantity
+    pub(crate) max_bucket: u64,
+    /// The value of the bucket with the smallest quantity
+    pub(crate) min_bucket: u64,
 }

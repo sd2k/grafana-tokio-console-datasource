@@ -1,5 +1,6 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    io::Cursor,
     pin::Pin,
     str::FromStr,
     sync::Arc,
@@ -8,7 +9,11 @@ use std::{
 };
 
 use chrono::prelude::*;
-use console_api::{instrument::Update, resources::Resource, tasks::Stats};
+use console_api::{
+    instrument::Update,
+    resources::Resource,
+    tasks::{Stats, TaskDetails},
+};
 use dashmap::DashMap;
 use futures::{Stream, StreamExt};
 use grafana_plugin_sdk::{backend, data, prelude::*};
@@ -95,6 +100,8 @@ struct Notification {
 struct ConsoleInstance {
     connection: Connection,
 
+    streams: HashSet<TaskId>,
+
     notifications: mpsc::Receiver<Notification>,
     stream_state: StreamRunningState,
 }
@@ -147,6 +154,31 @@ struct DatasourceState {
 }
 
 impl DatasourceState {
+    /// Create a new `DatasourceState` for a datasource from an initial update.
+    async fn new(
+        datasource_uid: DatasourceUid,
+        update: Update,
+    ) -> (Self, mpsc::Receiver<Notification>) {
+        let (tasks_frame_tx, tasks_frame_rx) = mpsc::channel(128);
+        let (notification_tx, notification_rx) = mpsc::channel(128);
+        let mut s = DatasourceState {
+            uid: datasource_uid,
+            last_updated: None,
+            metas: Default::default(),
+            tasks: Default::default(),
+            resources: Default::default(),
+            resource_stats: Default::default(),
+
+            tasks_frame_tx: Some(tasks_frame_tx),
+            tasks_frame_rx: Some(tasks_frame_rx),
+            resources_stream_tx: Default::default(),
+            resources_stream_rx: Default::default(),
+            notification_tx,
+        };
+        s.update(update).await;
+        (s, notification_rx)
+    }
+
     async fn update(&mut self, update: Update) {
         self.last_updated = Some(SystemTime::now());
         if let Some(new_metadata) = update.new_metadata {
@@ -185,6 +217,21 @@ impl DatasourceState {
         }
     }
 
+    async fn update_details(&mut self, update: TaskDetails) {
+        if let TaskDetails {
+            task_id: Some(task_id),
+            poll_times_histogram: Some(data),
+            ..
+        } = update
+        {
+            if let Some(task) = self.tasks.get_mut(&TaskId(task_id.id)) {
+                task.histogram = hdrhistogram::serialization::Deserializer::new()
+                    .deserialize(&mut Cursor::new(&data))
+                    .ok();
+            }
+        }
+    }
+
     fn get_tasks_frame(&self, updated_ids: Option<&[TaskId]>) -> Result<data::Frame, Error> {
         let len = updated_ids.map_or_else(|| self.tasks.len(), |x| x.len());
         let iter: Box<dyn Iterator<Item = &Task>> = match updated_ids {
@@ -202,6 +249,7 @@ impl DatasourceState {
         let mut locations = Vec::with_capacity(len);
 
         let mut polls = Vec::with_capacity(len);
+        let mut poll_times_histograms = Vec::with_capacity(len);
         let mut created_at = Vec::with_capacity(len);
         let mut dropped_at = Vec::with_capacity(len);
         let mut busy = Vec::with_capacity(len);
@@ -231,6 +279,8 @@ impl DatasourceState {
             locations.push(task.location.clone());
 
             polls.push(task.total_polls());
+            poll_times_histograms
+                .push(serde_json::to_string(&task.make_chart_data(100).0).unwrap());
             created_at.push(to_datetime(task.stats.created_at));
             dropped_at.push(task.stats.dropped_at.map(to_datetime));
             busy.push(self.last_updated.map(|x| task.busy(x)).map(as_nanos));
@@ -253,6 +303,7 @@ impl DatasourceState {
             states.into_field("State"),
             locations.into_field("Location"),
             polls.into_field("Polls"),
+            poll_times_histograms.into_field("Poll times"),
             created_at.into_field("Created At"),
             dropped_at.into_opt_field("Dropped At"),
             busy.into_opt_field("Busy"),
@@ -305,24 +356,8 @@ impl ConsolePlugin {
         let mut connection = Connection::new(url);
         // Get some initial state.
         let update = connection.next_update().await;
-        let (tasks_frame_tx, tasks_frame_rx) = mpsc::channel(128);
-        let (notification_tx, notification_rx) = mpsc::channel(128);
-        // Create an empty DatasourceState, then update it immediately with the initial state.
-        let mut instance_state = DatasourceState {
-            uid: datasource_uid.clone(),
-            last_updated: None,
-            metas: Default::default(),
-            tasks: Default::default(),
-            resources: Default::default(),
-            resource_stats: Default::default(),
-
-            tasks_frame_tx: Some(tasks_frame_tx),
-            tasks_frame_rx: Some(tasks_frame_rx),
-            resources_stream_tx: Default::default(),
-            resources_stream_rx: Default::default(),
-            notification_tx,
-        };
-        instance_state.update(update).await;
+        let (instance_state, notification_rx) =
+            DatasourceState::new(datasource_uid.clone(), update).await;
         self.state.insert(datasource_uid.clone(), instance_state);
 
         // Spawn a task to continuously fetch updates from the console, and
@@ -334,16 +369,36 @@ impl ConsolePlugin {
         spawn_named("manage connection", async move {
             let mut instance = ConsoleInstance {
                 connection,
+                streams: Default::default(),
                 notifications: notification_rx,
                 stream_state: StreamRunningState::default(),
             };
+            let mut details_stream = futures::stream::SelectAll::new();
             loop {
                 tokio::select! {
                     instrument_update = instance.connection.next_update() => {
                         if let Some(mut s) = state.get_mut(&uid_clone) {
                             s.update(instrument_update).await;
+                            for task_id in s.tasks.keys() {
+                                if !instance.streams.contains(task_id) {
+                                    if let Ok(stream) = instance
+                                        .connection
+                                        .watch_details(task_id.0)
+                                        .await {
+                                        details_stream.push(stream);
+                                    }
+                                    instance.streams.insert(*task_id);
+                                }
+                            }
                         }
                     }
+
+                    Some(Ok(details_update)) = details_stream.next() => {
+                        if let Some(mut s) = state.get_mut(&uid_clone) {
+                            s.update_details(details_update).await;
+                        }
+                    }
+
                     notification = instance.notifications.recv() => {
                         if let Some(n) = notification {
                             use {ConnectMessage::{Connected, Disconnected}, Path::{Resources, Tasks}};
@@ -386,8 +441,9 @@ impl ConsolePlugin {
                 .is_err()
             {
                 warn!(
-                    "Could not send notification for datasource '{}', path 'tasks'",
-                    &datasource_uid.0
+                    datasource = %datasource_uid.0,
+                    path = "tasks",
+                    "Could not send connect notification",
                 );
             };
         }
@@ -591,7 +647,7 @@ impl backend::StreamService for ConsolePlugin {
                     datasource = %uid_clone.0,
                     path = ?p,
                     "Could not send disconnect notification for datasource",
-                )
+                );
             };
         });
         let stream = match path {
