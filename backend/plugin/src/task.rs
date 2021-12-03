@@ -131,7 +131,7 @@ impl Task {
     pub(crate) fn idle(&self, since: SystemTime) -> Duration {
         self.stats
             .idle
-            .unwrap_or_else(|| self.total(since) - self.busy(since))
+            .unwrap_or_else(|| self.total(since).saturating_sub(self.busy(since)))
     }
 
     /// Returns the total number of times the task has been polled.
