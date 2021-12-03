@@ -88,7 +88,6 @@ enum ConnectMessage {
 }
 
 struct Notification {
-    path: Path,
     message: ConnectMessage,
 }
 
@@ -103,31 +102,7 @@ struct ConsoleInstance {
     streams: HashSet<TaskId>,
 
     notifications: mpsc::Receiver<Notification>,
-    stream_state: StreamRunningState,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum StreamState {
-    Running,
-    Stopped,
-}
-
-impl StreamState {
-    fn is_stopped(self) -> bool {
-        matches!(self, StreamState::Stopped)
-    }
-}
-
-impl Default for StreamState {
-    fn default() -> Self {
-        Self::Stopped
-    }
-}
-
-#[derive(Debug, Default)]
-struct StreamRunningState {
-    tasks: StreamState,
-    resources: StreamState,
+    stream_count: usize,
 }
 
 #[derive(Debug)]
@@ -371,7 +346,7 @@ impl ConsolePlugin {
                 connection,
                 streams: Default::default(),
                 notifications: notification_rx,
-                stream_state: StreamRunningState::default(),
+                stream_count: 0,
             };
             let mut details_stream = futures::stream::SelectAll::new();
             loop {
@@ -401,19 +376,17 @@ impl ConsolePlugin {
 
                     notification = instance.notifications.recv() => {
                         if let Some(n) = notification {
-                            use {ConnectMessage::{Connected, Disconnected}, Path::{Resources, Tasks}};
-                            match (n.path, n.message) {
-                                (Tasks, Connected) => instance.stream_state.tasks = StreamState::Running,
-                                (Tasks, Disconnected) => instance.stream_state.tasks = StreamState::Stopped,
-                                (Resources(_), Connected) => instance.stream_state.resources = StreamState::Running,
-                                (Resources(_), Disconnected) => instance.stream_state.resources = StreamState::Stopped,
+                            use ConnectMessage::{Connected, Disconnected};
+                            match n.message {
+                                Connected => instance.stream_count -= 1,
+                                Disconnected => instance.stream_count -= 1,
                             };
                         } else {
                             // TODO: figure out why the sender would have dropped and how to handle it properly
-                            instance.stream_state = StreamRunningState::default();
+                            warn!("Notifications channel dropped, stream may not be cleaned up");
                         }
                         // Drop connection and delete the initial state when we have no streams left.
-                        if instance.stream_state.tasks.is_stopped() && instance.stream_state.resources.is_stopped() {
+                        if instance.stream_count == 0 {
                             instance.notifications.close();
                             state.remove(&uid_clone);
                             info!(url = %instance.connection.target(), "Disconnecting from console");
@@ -434,7 +407,6 @@ impl ConsolePlugin {
         if let Some(ref x) = state {
             if x.notification_tx
                 .send(Notification {
-                    path: Path::Tasks,
                     message: ConnectMessage::Connected,
                 })
                 .await
@@ -637,7 +609,6 @@ impl backend::StreamService for ConsolePlugin {
             );
             if sender
                 .send(Notification {
-                    path: p.clone(),
                     message: ConnectMessage::Disconnected,
                 })
                 .await
