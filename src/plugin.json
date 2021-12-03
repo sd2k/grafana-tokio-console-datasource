@@ -36,12 +36,6 @@
     {
       "type": "datasource",
       "name": "Tokio Console data source"
-    },
-    {
-      "type": "dashboard",
-      "name": "Tokio overview",
-      "path": "dashboards/overview.json",
-      "addToNav": true
     }
   ],
   "dependencies": {
