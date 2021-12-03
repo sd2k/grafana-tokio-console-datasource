@@ -8,8 +8,8 @@ license = "MIT/Apache-2.0"
 anyhow = "1.0.45"
 async-stream = "0.3.2"
 chrono = "0.4.19"
-console-api = { git = "https://github.com/tokio-rs/console", rev = "042c1f78447839bed54538ed89b9277e437ed6b4" }
-console-subscriber = { git = "https://github.com/tokio-rs/console", rev = "042c1f78447839bed54538ed89b9277e437ed6b4" }
+console-api = { git = "https://github.com/grafana/console", rev = "1df61d977d2fb5ef8a6edb66f7723d9f616f3680" }
+console-subscriber = { git = "https://github.com/grafana/console", rev = "1df61d977d2fb5ef8a6edb66f7723d9f616f3680" }
 dashmap = "4.0.2"
 futures = "0.3.17"
 futures-core = "0.3.17"
