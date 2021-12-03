@@ -1,12 +1,10 @@
-use std::{
-    env::{self, args},
-    error::Error,
-    process::Command,
-};
+use std::{env, error::Error, process::Command};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    match args().nth(1).as_deref() {
-        Some("watch") => watch()?,
+    let mut args = env::args().skip(1);
+    let cmd = args.next();
+    match cmd.as_deref() {
+        Some("watch") => watch(args)?,
         _ => print_help(),
     };
     Ok(())
@@ -15,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn print_help() {
     eprintln!(
         "Tasks:
-watch            watch for changes, then compile plugin, replace in `dist` directory, and restart plugin process
+watch [release]      watch for changes, then compile plugin (optionally in release mode), replace in `dist` directory, and restart plugin process
 "
     )
 }
@@ -30,11 +28,17 @@ fn go_target() -> Result<String, Box<dyn Error>> {
     })
 }
 
-fn watch() -> Result<(), Box<dyn Error>> {
-    let target = go_target()?;
+fn watch(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Error>> {
+    let go_target = go_target()?;
+    let (build_cmd, cargo_target) = if let Some("release") = args.next().as_deref() {
+        ("build --release", "release")
+    } else {
+        ("build", "debug")
+    };
     let shell_cmd = format!(
-        "rm -rf ../dist/gpx_grafana-tokio-console-app_{0} && cp ./target/debug/gpx_grafana-tokio-console ../dist/gpx_grafana-tokio-console-app_{0} && pkill -HUP gpx_grafana-tokio-console-app_{0}",
-        target,
+        "rm -rf ../dist/gpx_grafana-tokio-console-app_{0} && cp ./target/{1}/gpx_grafana-tokio-console ../dist/gpx_grafana-tokio-console-app_{0} && pkill -HUP gpx_grafana-tokio-console-app_{0}",
+        go_target,
+        cargo_target,
     );
     let mut handle = Command::new("cargo")
         .arg("watch")
@@ -43,7 +47,7 @@ fn watch() -> Result<(), Box<dyn Error>> {
         .arg("-x")
         .arg("clippy")
         .arg("-x")
-        .arg("build")
+        .arg(build_cmd)
         .arg("-s")
         .arg(&shell_cmd)
         .arg("-c")
