@@ -4,9 +4,47 @@ This is a Grafana data source which can connect to the Tokio [`console`] subscri
 
 ## Getting started
 
-### Running Grafana locally
+### Plugin frontend
 
-You'll need to clone Grafana and run a specific branch to get some nice extra things working:
+At the repository root:
+
+1. Install dependencies
+
+   ```bash
+   yarn install
+   ```
+
+2. Build plugin in development mode or run in watch mode
+
+   ```bash
+   yarn dev
+   ```
+
+   or
+
+   ```bash
+   yarn watch
+   ```
+
+3. Build plugin in production mode
+
+   ```bash
+   yarn build
+   ```
+
+### Plugin backend
+
+Make sure you have a recent version of Rust (run `rustup update stable`), and install [`cargo-watch`].
+
+Then, in the `backend` directory:
+
+```bash
+cargo xtask watch
+```
+
+### Running Grafana
+
+You'll need to clone Grafana and run a specific branch to get some nice extra things working (namely the poll time histograms inside the main task list table):
 
 1. Clone Grafana
 
@@ -55,43 +93,11 @@ You'll need to clone Grafana and run a specific branch to get some nice extra th
    make run
    ```
 
-### Plugin frontend
+6. Add a Tokio Console datasource
 
-At the repository root:
+   In your browser, navigate to http://localhost:3000/datasources/new, find the 'Tokio Console' datasource, and add a new instance Using the placeholder value of http://127.0.0.1:6669 should work; this datasource instance will connect to the plugin backend process itself, which is serving the console subscriber service.
 
-1. Install dependencies
-
-   ```bash
-   yarn install
-   ```
-
-2. Build plugin in development mode or run in watch mode
-
-   ```bash
-   yarn dev
-   ```
-
-   or
-
-   ```bash
-   yarn watch
-   ```
-
-3. Build plugin in production mode
-
-   ```bash
-   yarn build
-   ```
-
-### Plugin backend
-
-Make sure you have a recent version of Rust (run `rustup update stable`), and install [`cargo-watch`].
-
-Then, in the `backend` directory:
-
-```bash
-cargo xtask watch
-```
+   You can then head to the datasource's Dashboards tab and import the provided dashboards.
 
 [`console`]: https://github.com/tokio-rs/console
 [console-frontend]: https://github.com/tokio-rs/console#extremely-cool-and-amazing-screenshots
