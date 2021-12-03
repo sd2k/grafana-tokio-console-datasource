@@ -34,5 +34,13 @@
     "screenshots": [],
     "version": "%VERSION%",
     "updated": "%TODAY%"
-  }
+  },
+  "includes": [
+    {
+      "type": "dashboard",
+      "name": "Tokio - Task List",
+      "path": "../dashboards/task-list.json",
+      "addToNav": true
+    }
+  ]
 }
