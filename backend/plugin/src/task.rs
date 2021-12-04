@@ -6,14 +6,21 @@ use std::{
 
 use console_api::{tasks::Stats, Location};
 use hdrhistogram::Histogram;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     metadata::{MetaId, Metadata},
     util::Percentage,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct TaskId(pub u64);
+
+impl fmt::Display for TaskId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug)]
 pub struct Task {

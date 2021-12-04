@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt,
     io::Cursor,
     pin::Pin,
     str::FromStr,
@@ -17,6 +18,7 @@ use console_api::{
 use dashmap::DashMap;
 use futures::{Stream, StreamExt};
 use grafana_plugin_sdk::{backend, data, prelude::*};
+use serde::Deserialize;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info, warn};
@@ -57,10 +59,25 @@ pub enum Error {
     Data(#[from] data::Error),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(tag = "path")]
 enum Path {
+    #[serde(rename = "tasks")]
     Tasks,
-    Resources(TaskId),
+    #[serde(rename = "task", rename_all = "camelCase")]
+    TaskDetails { task_id: TaskId },
+    #[serde(rename = "resources")]
+    Resources,
+}
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Tasks => write!(f, "tasks"),
+            Self::TaskDetails { task_id } => write!(f, "task/{}", task_id),
+            Self::Resources => write!(f, "resources"),
+        }
+    }
 }
 
 impl FromStr for Path {
@@ -70,12 +87,15 @@ impl FromStr for Path {
         let mut iter = s.splitn(2, '/');
         match (iter.next(), iter.next()) {
             (Some("tasks"), _) => Ok(Self::Tasks),
-            (Some("resources"), Some(task)) => Ok(Self::Resources(TaskId(
-                task.parse()
-                    .map_err(|_| Error::InvalidTaskId(task.to_string()))?,
-            ))),
+            (Some("task"), None) => Err(Error::MissingTaskId),
+            (Some("task"), Some(task_id)) => task_id
+                .parse()
+                .map(|id| Self::TaskDetails {
+                    task_id: TaskId(id),
+                })
+                .map_err(|_| Error::InvalidTaskId(task_id.to_string())),
+            (Some("resources"), _) => todo!(),
 
-            (Some("resources"), None) => Err(Error::MissingTaskId),
             _ => Err(Error::UnknownPath(s.to_string())),
         }
     }
@@ -649,12 +669,17 @@ impl backend::DataQueryError for QueryError {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+struct ConsoleQueryDataRequest {
+    #[serde(flatten)]
+    path: Path,
+}
+
 #[backend::async_trait]
 impl backend::DataService for ConsolePlugin {
     type QueryError = QueryError;
     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
-        info!(rows = 3, "Querying data");
         Box::new(request.queries.into_iter().map(move |x| {
             let uid = request
                 .plugin_context
@@ -662,35 +687,19 @@ impl backend::DataService for ConsolePlugin {
                 .as_ref()
                 .map(|ds| ds.uid.clone());
 
-            // Here we create a single response Frame for each query.
-            // Frames can be created from iterators of fields using [`IntoFrame`].
-            let mut frame = [
-                // Fields can be created from iterators of a variety of
-                // relevant datatypes.
-                [
-                    Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
-                    Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
-                    Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
-                ]
-                .into_field("time"),
-                [1_u32, 2, 3].into_field("x"),
-                ["a", "b", "c"].into_field("y"),
-            ]
-            .into_frame("foo");
+            let mut frame = data::Frame::new("");
 
             if let Some(uid) = &uid {
-                if let Some("tasks") = x
-                    .json
-                    .get("stream")
-                    .and_then(serde_json::value::Value::as_str)
+                if let Ok(path) =
+                    serde_json::from_value(x.json).map(|req: ConsoleQueryDataRequest| req.path)
                 {
-                    frame.set_channel(format!("ds/{}/tasks", uid).parse().unwrap());
+                    frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
                 }
             }
 
             Ok(backend::DataResponse::new(
-                x.ref_id.clone(),
-                vec![frame.check().map_err(|_| QueryError { ref_id: x.ref_id })?],
+                x.ref_id,
+                vec![frame.check().unwrap()],
             ))
         }))
     }
@@ -704,9 +713,47 @@ pub fn spawn_named<T>(
 where
     T: Send + 'static,
 {
-    #[cfg(tokio_unstable)]
-    return tokio::task::Builder::new().name(_name).spawn(task);
+    tokio::task::Builder::new().name(_name).spawn(task)
+}
 
-    #[cfg(not(tokio_unstable))]
-    tokio::spawn(task)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_path() {
+        assert_eq!(
+            serde_json::from_str::<Path>(r#"{"path": "tasks"}"#).unwrap(),
+            Path::Tasks
+        );
+        assert_eq!(
+            serde_json::from_str::<Path>(r#"{"path": "task", "taskId": 1}"#).unwrap(),
+            Path::TaskDetails { task_id: TaskId(1) }
+        );
+        assert_eq!(
+            serde_json::from_str::<Path>(r#"{"path": "resources"}"#).unwrap(),
+            Path::Resources
+        );
+    }
+
+    #[test]
+    fn deserialize_request() {
+        assert_eq!(
+            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "tasks"}"#).unwrap(),
+            ConsoleQueryDataRequest { path: Path::Tasks }
+        );
+        assert_eq!(
+            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "task", "taskId": 1}"#)
+                .unwrap(),
+            ConsoleQueryDataRequest {
+                path: Path::TaskDetails { task_id: TaskId(1) }
+            }
+        );
+        assert_eq!(
+            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "resources"}"#).unwrap(),
+            ConsoleQueryDataRequest {
+                path: Path::Resources
+            }
+        );
+    }
 }

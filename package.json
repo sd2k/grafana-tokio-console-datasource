@@ -13,11 +13,11 @@
   "author": "Ben Sully",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "latest",
-    "@grafana/toolkit": "latest",
-    "@grafana/runtime": "latest",
-    "@grafana/ui": "latest",
-    "@types/lodash": "latest"
+    "@grafana/data": "^8.3.0",
+    "@grafana/runtime": "^8.3.0",
+    "@grafana/toolkit": "^8.3.0",
+    "@grafana/ui": "^8.3.0",
+    "@types/lodash": "^4.14.177"
   },
   "resolutions": {
     "rxjs": "7.3.0"

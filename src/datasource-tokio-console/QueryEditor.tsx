@@ -1,39 +1,42 @@
 import { defaults } from 'lodash';
 
-import React, { PureComponent } from 'react';
-import { Select } from '@grafana/ui';
+import React, { ChangeEvent, PureComponent } from 'react';
+import { Input, Select } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
-import { defaultQuery, DataSourceOptions, ConsoleQuery } from './types';
-
+import { defaultQuery, DataSourceOptions, ConsolePathName, ConsoleQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, ConsoleQuery, DataSourceOptions>;
 
-const streamOptions = [
-  { label: 'Tasks', value: 'tasks', description: 'Tasks list' },
-  { label: 'Task details', value: 'task details', description: 'Task details' },
-  { label: 'Resources', value: 'resources', description: 'Resources list' },
+const pathOptions = [
+  { label: 'Tasks', value: ConsolePathName.Tasks, description: 'Tasks list' },
+  { label: 'Task details', value: ConsolePathName.TaskDetails, description: 'Task details' },
+  { label: 'Resources', value: ConsolePathName.Resources, description: 'Resources list' },
 ];
 
 export class QueryEditor extends PureComponent<Props> {
-  onStreamChange = (event: SelectableValue<string>) => {
+  onPathChange = (event: SelectableValue<ConsolePathName>) => {
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, stream: event.value });
+    onChange({ ...query, path: event.value });
     onRunQuery();
+  };
+
+  onTaskIdChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { onChange, query, onRunQuery } = this.props;
+    if (query.path === ConsolePathName.TaskDetails) {
+      const taskId = parseInt(event.target.value);
+      onChange({ ...query, taskId: isNaN(taskId) ? undefined : taskId });
+      onRunQuery();
+    }
   };
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
-    const { stream } = query;
+    const { path } = query;
     return (
       <div className="gf-form">
-        <Select
-          options={streamOptions}
-          value={stream}
-          onChange={(v) => {
-            this.onStreamChange(v);
-          }}
-        />
+        <Select options={pathOptions} value={path} onChange={this.onPathChange} />
+        {query.path === ConsolePathName.TaskDetails ? <Input invalid={query.taskId === undefined} value={query.taskId} onChange={this.onTaskIdChange} /> : null}
       </div>
     );
   }
