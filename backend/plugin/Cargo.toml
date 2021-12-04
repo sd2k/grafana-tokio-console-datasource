@@ -14,7 +14,7 @@ dashmap = "4.0.2"
 futures = "0.3.17"
 futures-core = "0.3.17"
 futures-util = "0.3.17"
-grafana-plugin-sdk = { git = "https://github.com/grafana/grafana-plugin-sdk-rust", rev = "bb16a32f8d217d2a3ee4039055bf20b703e2ae88" }
+grafana-plugin-sdk = { git = "https://github.com/grafana/grafana-plugin-sdk-rust", rev = "33928c855cf2972eaa99d38d7d414e92590b1f07" }
 h2 = "0.3.7"
 hdrhistogram = "7.4.0"
 once_cell = "1.8.0"

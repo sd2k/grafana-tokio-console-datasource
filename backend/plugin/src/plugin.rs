@@ -34,10 +34,15 @@ struct DatasourceUid(String);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("stream already running")]
+    StreamAlreadyRunning,
+
     #[error("missing task ID")]
     MissingTaskId,
     #[error("invalid task ID: {0}")]
     InvalidTaskId(String),
+    #[error("task with ID {} not found", (.0).0)]
+    TaskNotFound(TaskId),
 
     #[error("unknown path: {0}. must be one of: tasks, resources/<id>")]
     UnknownPath(String),
@@ -131,9 +136,8 @@ struct DatasourceState {
 
     metas: HashMap<MetaId, Metadata>,
     tasks: HashMap<TaskId, Task>,
-    resources: HashMap<u64, Resource>,
-    resource_stats: HashMap<u64, Stats>,
-
+    // resources: HashMap<u64, Resource>,
+    // resource_stats: HashMap<u64, Stats>,
     last_updated: Option<SystemTime>,
 
     /// The incoming stream of task updates, to be forwarded to subscribers as `Frame`s.
@@ -141,10 +145,13 @@ struct DatasourceState {
     /// This will be `None` if the stream has been taken by `stream_tasks`.
     tasks_frame_tx: Option<mpsc::Sender<Result<data::Frame, Error>>>,
     tasks_frame_rx: Option<mpsc::Receiver<Result<data::Frame, Error>>>,
-    /// The incoming stream of resource updates, to be forwarded to subscribers as `Frame`s.
-    resources_stream_tx: Option<mpsc::Sender<Result<data::Frame, Error>>>,
-    resources_stream_rx: Option<mpsc::Sender<Result<data::Frame, Error>>>,
 
+    /// Map from task ID to channel of incoming task details.
+    task_details_frame_txs: HashMap<TaskId, mpsc::Sender<Result<data::Frame, Error>>>,
+
+    /// The incoming stream of resource updates, to be forwarded to subscribers as `Frame`s.
+    // resources_stream_tx: Option<mpsc::Sender<Result<data::Frame, Error>>>,
+    // resources_stream_rx: Option<mpsc::Receiver<Result<data::Frame, Error>>>,
     notification_tx: mpsc::Sender<Notification>,
 }
 
@@ -161,13 +168,13 @@ impl DatasourceState {
             last_updated: None,
             metas: Default::default(),
             tasks: Default::default(),
-            resources: Default::default(),
-            resource_stats: Default::default(),
-
+            // resources: Default::default(),
+            // resource_stats: Default::default(),
             tasks_frame_tx: Some(tasks_frame_tx),
             tasks_frame_rx: Some(tasks_frame_rx),
-            resources_stream_tx: Default::default(),
-            resources_stream_rx: Default::default(),
+            task_details_frame_txs: Default::default(),
+            // resources_stream_tx: Default::default(),
+            // resources_stream_rx: Default::default(),
             notification_tx,
         };
         s.update(update).await;
@@ -214,15 +221,26 @@ impl DatasourceState {
 
     async fn update_details(&mut self, update: TaskDetails) {
         if let TaskDetails {
-            task_id: Some(task_id),
+            task_id: Some(id),
             poll_times_histogram: Some(data),
             ..
         } = update
         {
-            if let Some(task) = self.tasks.get_mut(&TaskId(task_id.id)) {
+            let task_id = TaskId(id.id);
+            if let Some(task) = self.tasks.get_mut(&task_id) {
                 task.histogram = hdrhistogram::serialization::Deserializer::new()
                     .deserialize(&mut Cursor::new(&data))
                     .ok();
+                if let Some(tx) = self.task_details_frame_txs.get(&task_id) {
+                    if tx.send(self.get_task_details_frame(task_id)).await.is_err() {
+                        debug!(
+                            datasource_uid = %self.uid.0,
+                            task_id = %task_id.0,
+                            "dropping task details transmitter for task",
+                        );
+                        self.task_details_frame_txs.remove(&task_id);
+                    }
+                }
             }
         }
     }
@@ -315,11 +333,16 @@ impl DatasourceState {
         Ok(frame)
     }
 
+    fn get_task_details_frame(&self, id: TaskId) -> Result<data::Frame, Error> {
+        self.get_tasks_frame(Some(&[id]))
+    }
+
     /// Convert this state into an owned `Frame`.
     fn to_frame(&self, path: &Path) -> Result<data::Frame, Error> {
         match path {
             Path::Tasks => self.get_tasks_frame(None),
-            _ => todo!(),
+            Path::TaskDetails { task_id } => self.get_task_details_frame(*task_id),
+            Path::Resources => todo!(),
         }
     }
 }
@@ -368,7 +391,7 @@ impl ConsolePlugin {
                 notifications: notification_rx,
                 stream_count: 0,
             };
-            let mut details_stream = futures::stream::SelectAll::new();
+            let mut task_details_stream = futures::stream::SelectAll::new();
             loop {
                 tokio::select! {
                     instrument_update = instance.connection.next_update() => {
@@ -380,7 +403,7 @@ impl ConsolePlugin {
                                         .connection
                                         .watch_details(task_id.0)
                                         .await {
-                                        details_stream.push(stream);
+                                        task_details_stream.push(stream);
                                     }
                                     instance.streams.insert(*task_id);
                                 }
@@ -388,9 +411,9 @@ impl ConsolePlugin {
                         }
                     }
 
-                    Some(Ok(details_update)) = details_stream.next() => {
+                    Some(Ok(task_details_update)) = task_details_stream.next() => {
                         if let Some(mut s) = state.get_mut(&uid_clone) {
-                            s.update_details(details_update).await;
+                            s.update_details(task_details_update).await;
                         }
                     }
 
@@ -398,8 +421,8 @@ impl ConsolePlugin {
                         if let Some(n) = notification {
                             use ConnectMessage::{Connected, Disconnected};
                             match n.message {
-                                Connected => instance.stream_count -= 1,
-                                Disconnected => instance.stream_count -= 1,
+                                Connected => instance.stream_count += 1,
+                                Disconnected => instance.stream_count = instance.stream_count.saturating_sub(1),
                             };
                         } else {
                             // TODO: figure out why the sender would have dropped and how to handle it properly
@@ -422,45 +445,50 @@ impl ConsolePlugin {
     async fn stream_tasks(
         &self,
         datasource_uid: &DatasourceUid,
+    ) -> Result<<Self as backend::StreamService>::Stream, <Self as backend::StreamService>::Error>
+    {
+        let state = self.state.get_mut(datasource_uid);
+        Ok(state
+            .and_then(|mut x| x.tasks_frame_rx.take())
+            .ok_or(Error::DatasourceInstanceNotFound)
+            .map(|x| {
+                Box::pin(ReceiverStream::new(x).map(|res| {
+                    res.and_then(|frame| {
+                        frame
+                            .check()
+                            .map_err(Error::Data)
+                            .and_then(|f| Ok(backend::StreamPacket::from_frame(f)?))
+                    })
+                })) as <Self as backend::StreamService>::Stream
+            })?)
+    }
+
+    async fn stream_task_details(
+        &self,
+        datasource_uid: &DatasourceUid,
+        task_id: TaskId,
     ) -> <Self as backend::StreamService>::Stream {
         let state = self.state.get_mut(datasource_uid);
-        if let Some(ref x) = state {
-            if x.notification_tx
-                .send(Notification {
-                    message: ConnectMessage::Connected,
-                })
-                .await
-                .is_err()
-            {
-                warn!(
-                    datasource = %datasource_uid.0,
-                    path = "tasks",
-                    "Could not send connect notification",
-                );
-            };
-        }
-        Box::pin(
-            state
-                .and_then(|mut x| x.tasks_frame_rx.take())
-                .ok_or(Error::DatasourceInstanceNotFound)
-                .map(|x| {
-                    ReceiverStream::new(x).map(|res| {
-                        res.and_then(|frame| {
-                            frame
-                                .check()
-                                .map_err(Error::Data)
-                                .and_then(|f| Ok(backend::StreamPacket::from_frame(f)?))
-                        })
-                    })
-                })
-                .unwrap(),
-        )
+
+        let (tx, rx) = mpsc::channel(128);
+        state
+            .ok_or(Error::DatasourceInstanceNotFound)
+            .expect("state should be present for datasource")
+            .task_details_frame_txs
+            .insert(task_id, tx);
+        Box::pin(ReceiverStream::new(rx).map(|res| {
+            res.and_then(|frame| {
+                frame
+                    .check()
+                    .map_err(Error::Data)
+                    .and_then(|f| Ok(backend::StreamPacket::from_frame(f)?))
+            })
+        }))
     }
 
     async fn stream_resources(
         &self,
         _datasource_uid: &DatasourceUid,
-        _task_id: TaskId,
     ) -> <Self as backend::StreamService>::Stream {
         todo!()
     }
@@ -518,25 +546,12 @@ impl backend::StreamService for ConsolePlugin {
     async fn subscribe_stream(
         &self,
         request: backend::SubscribeStreamRequest,
-    ) -> backend::SubscribeStreamResponse {
-        let path = match request.path.parse() {
-            Ok(p) => p,
-            _ => {
-                return backend::SubscribeStreamResponse {
-                    status: backend::SubscribeStreamStatus::NotFound,
-                    initial_data: None,
-                }
-            }
-        };
-        let datasource_settings = match request.plugin_context.datasource_instance_settings {
-            Some(settings) => settings,
-            None => {
-                return backend::SubscribeStreamResponse {
-                    status: backend::SubscribeStreamStatus::NotFound,
-                    initial_data: None,
-                }
-            }
-        };
+    ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
+        let path = request.path.parse()?;
+        let datasource_settings = request
+            .plugin_context
+            .datasource_instance_settings
+            .ok_or(Error::MissingDatasource)?;
         let uid = DatasourceUid(datasource_settings.uid.clone());
 
         // Check if we're already connected to this datasource instance and getting updates.
@@ -553,21 +568,16 @@ impl backend::StreamService for ConsolePlugin {
             }),
         };
 
-        match initial_data.and_then(frame_to_initial_data) {
-            Ok(x) => backend::SubscribeStreamResponse {
+        initial_data
+            .and_then(frame_to_initial_data)
+            .map(|x| backend::SubscribeStreamResponse {
                 status: backend::SubscribeStreamStatus::Ok,
                 initial_data: Some(x),
-            },
-            Err(_) => backend::SubscribeStreamResponse {
-                // TODO - what should this really be?
-                status: backend::SubscribeStreamStatus::NotFound,
-                initial_data: None,
-            },
-        }
+            })
     }
 
-    type StreamError = Error;
-    type Stream = backend::BoxRunStream<Self::StreamError>;
+    type Error = Error;
+    type Stream = backend::BoxRunStream<Self::Error>;
 
     /// Begin streaming data for a given channel.
     ///
@@ -579,27 +589,22 @@ impl backend::StreamService for ConsolePlugin {
     /// instance's in-memory state, and inform the datasource's console connection when no clients
     /// remain connected. This will allow the connection to disconnect, and the state to be cleared,
     /// when there are no longer any streams running for it.
-    async fn run_stream(&self, request: backend::RunStreamRequest) -> Self::Stream {
+    async fn run_stream(
+        &self,
+        request: backend::RunStreamRequest,
+    ) -> Result<Self::Stream, Self::Error> {
         // This method will only be called once per path per datasource instance.
         // We need a way to signal to the connection object when the client (Grafana's backend)
         // has disconnected from this stream.
 
         let path: Path = match request.path.parse() {
             Ok(p) => p,
-            _ => {
-                return Box::pin(futures::stream::once(async {
-                    Err(Error::UnknownPath(request.path))
-                }))
-            }
+            _ => return Err(Error::UnknownPath(request.path)),
         };
 
         let datasource_settings = match request.plugin_context.datasource_instance_settings {
             Some(settings) => settings,
-            None => {
-                return Box::pin(futures::stream::once(async {
-                    Err(Error::MissingDatasource)
-                }))
-            }
+            None => return Err(Error::MissingDatasource),
         };
         let uid = DatasourceUid(datasource_settings.uid.clone());
 
@@ -641,17 +646,33 @@ impl backend::StreamService for ConsolePlugin {
                 );
             };
         });
+        if let Some(ref x) = self.state.get_mut(&uid) {
+            if x.notification_tx
+                .send(Notification {
+                    message: ConnectMessage::Connected,
+                })
+                .await
+                .is_err()
+            {
+                warn!(
+                    datasource = %uid.0,
+                    path = "tasks",
+                    "Could not send connect notification",
+                );
+            };
+        }
         let stream = match path {
-            Path::Tasks => self.stream_tasks(&uid).await,
-            Path::Resources(task_id) => self.stream_resources(&uid, task_id).await,
+            Path::Tasks => self.stream_tasks(&uid).await?,
+            Path::TaskDetails { task_id } => self.stream_task_details(&uid, task_id).await,
+            Path::Resources => self.stream_resources(&uid).await,
         };
-        Box::pin(ClientDisconnect(stream, tx))
+        Ok(Box::pin(ClientDisconnect(stream, tx)))
     }
 
     async fn publish_stream(
         &self,
         _request: backend::PublishStreamRequest,
-    ) -> backend::PublishStreamResponse {
+    ) -> Result<backend::PublishStreamResponse, Self::Error> {
         debug!("Publishing to stream is not implemented");
         unimplemented!()
     }

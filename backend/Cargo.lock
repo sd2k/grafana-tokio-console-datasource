@@ -385,7 +385,7 @@ dependencies = [
 [[package]]
 name = "grafana-plugin-sdk"
 version = "0.1.0"
-source = "git+https://github.com/grafana/grafana-plugin-sdk-rust?rev=bb16a32f8d217d2a3ee4039055bf20b703e2ae88#bb16a32f8d217d2a3ee4039055bf20b703e2ae88"
+source = "git+https://github.com/grafana/grafana-plugin-sdk-rust?rev=33928c855cf2972eaa99d38d7d414e92590b1f07#33928c855cf2972eaa99d38d7d414e92590b1f07"
 dependencies = [
  "arrow2",
  "chrono",
@@ -417,7 +417,7 @@ dependencies = [
 [[package]]
 name = "grafana-plugin-sdk-macros"
 version = "0.1.0"
-source = "git+https://github.com/grafana/grafana-plugin-sdk-rust?rev=bb16a32f8d217d2a3ee4039055bf20b703e2ae88#bb16a32f8d217d2a3ee4039055bf20b703e2ae88"
+source = "git+https://github.com/grafana/grafana-plugin-sdk-rust?rev=33928c855cf2972eaa99d38d7d414e92590b1f07#33928c855cf2972eaa99d38d7d414e92590b1f07"
 dependencies = [
  "proc-macro2",
  "quote",
