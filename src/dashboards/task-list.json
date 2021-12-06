@@ -22,7 +22,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
   "iteration": 1638530103351,
   "links": [],
   "liveNow": true,
@@ -84,7 +83,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "stream": "tasks"
+          "path": "tasks"
         }
       ],
       "title": "Total tasks",
@@ -158,7 +157,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "stream": "tasks"
+          "path": "tasks"
         }
       ],
       "title": "Running tasks",
@@ -257,7 +256,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "stream": "tasks"
+          "path": "tasks"
         }
       ],
       "title": "Idle tasks",
@@ -353,7 +352,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "stream": "tasks"
+          "path": "tasks"
         }
       ],
       "title": "Completed tasks",
@@ -687,7 +686,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "stream": "tasks"
+          "path": "tasks"
         }
       ],
       "title": "Tasks",
@@ -971,7 +970,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "stream": "tasks"
+          "path": "tasks"
         }
       ],
       "title": "Polls over time",
@@ -1067,8 +1066,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Task List",
-  "uid": "88riWyt7z",
+  "title": "Tokio / Task List",
   "version": 31,
   "weekStart": ""
 }

@@ -1,11 +1,9 @@
-import { AppPlugin } from '@grafana/data';
+import { DataSourcePlugin } from '@grafana/data';
+import { DataSource } from './datasource';
+import { ConfigEditor } from './ConfigEditor';
+import { QueryEditor } from './QueryEditor';
+import { ConsoleQuery, DataSourceOptions } from './types';
 
-import { AppConfig } from './AppConfig';
-
-export const plugin = new AppPlugin<{}>().addConfigPage({
-  title: 'Configuration',
-  icon: 'fa fa-cog',
-  // @ts-expect-error
-  body: AppConfig,
-  id: 'configuration',
-});
+export const plugin = new DataSourcePlugin<DataSource, ConsoleQuery, DataSourceOptions>(DataSource)
+  .setConfigEditor(ConfigEditor)
+  .setQueryEditor(QueryEditor);

@@ -1,7 +1,7 @@
 {
-  "name": "grafana-tokio-console-app",
+  "name": "grafana-tokio-console-datasource",
   "version": "1.0.0",
-  "description": "Tokio Console plugin for Grafana",
+  "description": "Tokio Console datasource for Grafana",
   "scripts": {
     "build": "grafana-toolkit plugin:build",
     "test": "grafana-toolkit plugin:test",

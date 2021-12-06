@@ -1,11 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
-  "type": "app",
+  "type": "datasource",
   "name": "Tokio Console",
-  "id": "grafana-tokio-console-app",
-  "executable": "gpx_grafana-tokio-console-app",
+  "id": "grafana-tokio-console-datasource",
+  "metrics": true,
+  "backend": true,
+  "streaming": true,
+  "executable": "./gpx_grafana-tokio-console-app",
   "info": {
-    "description": "Tokio Console plugin for Grafana",
+    "description": "Tokio Console datasource for Grafana",
     "author": {
       "name": "Ben Sully",
       "url": ""
@@ -15,8 +18,8 @@
       "console"
     ],
     "logos": {
-      "small": "img/logo.jpg",
-      "large": "img/logo.jpg"
+      "small": "./img/logo.svg",
+      "large": "./img/logo.svg"
     },
     "links": [
       {
@@ -34,12 +37,10 @@
   },
   "includes": [
     {
-      "type": "datasource",
-      "name": "Tokio Console data source"
+      "type": "dashboard",
+      "name": "Tokio - Task List",
+      "path": "./dashboards/task-list.json",
+      "addToNav": true
     }
-  ],
-  "dependencies": {
-    "grafanaDependency": ">=7.0.0",
-    "plugins": []
-  }
+  ]
 }
