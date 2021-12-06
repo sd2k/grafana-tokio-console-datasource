@@ -42,6 +42,8 @@ Then run:
 cargo xtask watch
 ```
 
+This will run the `watch` task using the [`cargo-xtask`] pattern, which rebuilds the backend component on changes, copies the binary into the correct location, and restarts the plugin process (which Grafana subsequently restarts).
+
 ### Running Grafana
 
 You'll need to clone Grafana and run a specific branch to get some nice extra things working (namely the poll time histograms inside the main task list table):
@@ -101,5 +103,6 @@ You'll need to clone Grafana and run a specific branch to get some nice extra th
 
 [`console`]: https://github.com/tokio-rs/console
 [console-frontend]: https://github.com/tokio-rs/console#extremely-cool-and-amazing-screenshots
+[`cargo-xtask`]: https://github.com/matklad/cargo-xtask
 [`cargo-watch`]: https://github.com/watchexec/cargo-watch/
 
