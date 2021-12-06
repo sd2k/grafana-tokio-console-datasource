@@ -36,7 +36,7 @@ At the repository root:
 
 Make sure you have a recent version of Rust (run `rustup update stable`), and install [`cargo-watch`].
 
-Then, in the `backend` directory:
+Then run:
 
 ```bash
 cargo xtask watch

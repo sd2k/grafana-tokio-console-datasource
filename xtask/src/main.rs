@@ -36,14 +36,14 @@ fn watch(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Error>> {
         ("build", "debug")
     };
     let shell_cmd = format!(
-        "rm -rf ../dist/gpx_grafana-tokio-console-app_{0} && cp ./target/{1}/gpx_grafana-tokio-console ../dist/gpx_grafana-tokio-console-app_{0} && pkill -HUP gpx_grafana-tokio-console-app_{0}",
+        "rm -rf ./dist/gpx_grafana-tokio-console-app_{0} && cp ./target/{1}/gpx_grafana-tokio-console ./dist/gpx_grafana-tokio-console-app_{0} && pkill -HUP gpx_grafana-tokio-console-app_{0}",
         go_target,
         cargo_target,
     );
     let mut handle = Command::new("cargo")
         .arg("watch")
         .arg("-w")
-        .arg("plugin")
+        .arg("backend")
         .arg("-x")
         .arg("clippy")
         .arg("-x")
