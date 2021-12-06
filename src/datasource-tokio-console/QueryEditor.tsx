@@ -24,7 +24,7 @@ export class QueryEditor extends PureComponent<Props> {
   onTaskIdChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onChange, query, onRunQuery } = this.props;
     if (query.path === ConsolePathName.TaskDetails) {
-      const taskId = parseInt(event.target.value);
+      const taskId = parseInt(event.target.value, 10);
       onChange({ ...query, taskId: isNaN(taskId) ? undefined : taskId });
       onRunQuery();
     }
@@ -36,7 +36,9 @@ export class QueryEditor extends PureComponent<Props> {
     return (
       <div className="gf-form">
         <Select options={pathOptions} value={path} onChange={this.onPathChange} />
-        {query.path === ConsolePathName.TaskDetails ? <Input invalid={query.taskId === undefined} value={query.taskId} onChange={this.onTaskIdChange} /> : null}
+        {query.path === ConsolePathName.TaskDetails ? (
+          <Input invalid={query.taskId === undefined} value={query.taskId} onChange={this.onTaskIdChange} />
+        ) : null}
       </div>
     );
   }

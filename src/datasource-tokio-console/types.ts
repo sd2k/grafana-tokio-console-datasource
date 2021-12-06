@@ -4,7 +4,7 @@ export enum ConsolePathName {
   Tasks = 'tasks',
   TaskDetails = 'task',
   Resources = 'resources',
-};
+}
 
 interface PartialConsoleQuery extends DataQuery {
   path?: ConsolePathName;
@@ -12,7 +12,7 @@ interface PartialConsoleQuery extends DataQuery {
 
 export interface TasksConsolePath extends PartialConsoleQuery {
   path?: ConsolePathName.Tasks;
-};
+}
 
 export interface ResourcesConsolePath extends PartialConsoleQuery {
   path?: ConsolePathName.Resources;
