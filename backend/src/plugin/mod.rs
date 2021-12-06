@@ -2,35 +2,45 @@ use std::{
     collections::{HashMap, HashSet},
     fmt,
     io::Cursor,
-    pin::Pin,
     str::FromStr,
     sync::Arc,
-    task::{Context, Poll},
     time::{Duration, SystemTime},
 };
 
 use chrono::prelude::*;
-use console_api::{
-    instrument::Update,
-    resources::Resource,
-    tasks::{Stats, TaskDetails},
-};
+use console_api::{instrument::Update, tasks::TaskDetails};
 use dashmap::DashMap;
-use futures::{Stream, StreamExt};
-use grafana_plugin_sdk::{backend, data, prelude::*};
+use futures::StreamExt;
+use grafana_plugin_sdk::{
+    backend::{self, DataSourceInstanceSettings},
+    data,
+    prelude::*,
+};
 use serde::Deserialize;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info, warn};
 
 use crate::{
     connection::Connection,
     metadata::{MetaId, Metadata},
+    spawn_named,
     task::{Task, TaskId},
 };
 
+#[path = "data.rs"]
+mod data_service_impl;
+mod diagnostics;
+mod stream;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct DatasourceUid(String);
+
+impl fmt::Display for DatasourceUid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -404,8 +414,8 @@ impl ConsolePlugin {
                                         .watch_details(task_id.0)
                                         .await {
                                         task_details_stream.push(stream);
+                                        instance.streams.insert(*task_id);
                                     }
-                                    instance.streams.insert(*task_id);
                                 }
                             }
                         }
@@ -505,276 +515,42 @@ impl ConsolePlugin {
     }
 }
 
-fn frame_to_initial_data(frame: data::Frame) -> Result<backend::InitialData, Error> {
-    let checked = frame.check()?;
-    let init = backend::InitialData::from_frame(checked, data::FrameInclude::All)?;
-    Ok(init)
-}
+/// Extension trait providing some convenience methods for getting the `path` and `datasource_uid`.
+trait RequestExt {
+    /// The path passed as part of the request, as a `&str`.
+    fn raw_path(&self) -> &str;
+    /// The datasource instance settings passed in the request.
+    fn datasource_instance_settings(&self) -> Option<&DataSourceInstanceSettings>;
 
-pub struct ClientDisconnect<T>(T, oneshot::Sender<()>);
+    /// The parsed `Path`, or an `Error` if parsing failed.
+    fn path(&self) -> Result<Path, Error> {
+        let path = self.raw_path();
+        path.parse()
+            .map_err(|_| Error::UnknownPath(path.to_string()))
+    }
 
-impl<T, I> Stream for ClientDisconnect<T>
-where
-    T: Stream<Item = I> + std::marker::Unpin,
-{
-    type Item = I;
-    fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.0).poll_next(ctx)
+    /// The datasource UID of the request, or an `Error` if the request didn't include
+    /// any datasource settings.
+    fn datasource_uid(&self) -> Result<DatasourceUid, Error> {
+        self.datasource_instance_settings()
+            .ok_or(Error::MissingDatasource)
+            .map(|x| DatasourceUid(x.uid.clone()))
     }
 }
 
-#[backend::async_trait]
-impl backend::StreamService for ConsolePlugin {
-    type JsonValue = ();
-
-    /// Subscribe to a stream of updates from a Console datasource instance.
-    ///
-    /// This function will be called every time a user subscribes to a stream.
-    /// We have several Grafana streams for each datasource instance (tasks, resources, ...)
-    /// but only need a single Console connection. When a subscription request comes in,
-    /// we check whether a connection already exists for that datasource instance.
-    /// If so, we can return the existing in-memory state as `initial_data`.
-    /// If not, we need to create a new connection, load the initial state for the
-    /// console in question, and store those so that future subscription requests
-    /// reuse it.
-    ///
-    /// After creating a connection we must also spawn a task which will stream updates
-    /// from the console to our in-memory state. This is due to the mismatch between
-    /// having 1 console stream and 3 Grafana streams.
-    ///
-    /// TODO describe that better.
-    async fn subscribe_stream(
-        &self,
-        request: backend::SubscribeStreamRequest,
-    ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
-        let path = request.path.parse()?;
-        let datasource_settings = request
-            .plugin_context
-            .datasource_instance_settings
-            .ok_or(Error::MissingDatasource)?;
-        let uid = DatasourceUid(datasource_settings.uid.clone());
-
-        // Check if we're already connected to this datasource instance and getting updates.
-        // If so, we should just return the current state as `initial_data`.
-        // If not, we should spawn a task to start populating the datasource instance's state.
-        let initial_data: Result<data::Frame, Error> = match self.initial_data(&uid, &path) {
-            Some(s) => s,
-            None => self.connect(datasource_settings).await.and_then(|_| {
-                self.state
-                    .get(&uid)
-                    // Invariant: self.connect will create the state for this uid.
-                    .expect("state to be present")
-                    .to_frame(&path)
-            }),
-        };
-
-        initial_data
-            .and_then(frame_to_initial_data)
-            .map(|x| backend::SubscribeStreamResponse {
-                status: backend::SubscribeStreamStatus::Ok,
-                initial_data: Some(x),
-            })
-    }
-
-    type Error = Error;
-    type Stream = backend::BoxRunStream<Self::Error>;
-
-    /// Begin streaming data for a given channel.
-    ///
-    /// This method is called _once_ for a (datasource, path) combination and the output
-    /// is multiplexed to all clients by Grafana's backend. This is in contrast to the
-    /// `subscribe_stream` method which is called for every client that wishes to connect.
-    ///
-    /// As such, this simply needs to stream updates of a specific type from a given datasource
-    /// instance's in-memory state, and inform the datasource's console connection when no clients
-    /// remain connected. This will allow the connection to disconnect, and the state to be cleared,
-    /// when there are no longer any streams running for it.
-    async fn run_stream(
-        &self,
-        request: backend::RunStreamRequest,
-    ) -> Result<Self::Stream, Self::Error> {
-        // This method will only be called once per path per datasource instance.
-        // We need a way to signal to the connection object when the client (Grafana's backend)
-        // has disconnected from this stream.
-
-        let path: Path = match request.path.parse() {
-            Ok(p) => p,
-            _ => return Err(Error::UnknownPath(request.path)),
-        };
-
-        let datasource_settings = match request.plugin_context.datasource_instance_settings {
-            Some(settings) => settings,
-            None => return Err(Error::MissingDatasource),
-        };
-        let uid = DatasourceUid(datasource_settings.uid.clone());
-
-        let (tx, rx) = oneshot::channel::<()>();
-        let p = path.clone();
-
-        let sender = match self.state.get(&uid) {
-            Some(s) => s.notification_tx.clone(),
-            None => {
-                if let Err(e) = self.connect(datasource_settings).await {
-                    error!(error = ?e, "error connecting to console");
-                };
-                self.state
-                    .get(&uid)
-                    .expect("state to be present")
-                    .notification_tx
-                    .clone()
+macro_rules! impl_request_ext {
+    ($request: path) => {
+        impl RequestExt for $request {
+            fn raw_path(&self) -> &str {
+                self.path.as_str()
             }
-        };
-        let uid_clone = uid.clone();
-        spawn_named("track disconnects", async move {
-            let _ = rx.await;
-            info!(
-                datasource = %uid_clone.0,
-                path = ?p,
-                "Client disconnected for datasource",
-            );
-            if sender
-                .send(Notification {
-                    message: ConnectMessage::Disconnected,
-                })
-                .await
-                .is_err()
-            {
-                warn!(
-                    datasource = %uid_clone.0,
-                    path = ?p,
-                    "Could not send disconnect notification for datasource",
-                );
-            };
-        });
-        if let Some(ref x) = self.state.get_mut(&uid) {
-            if x.notification_tx
-                .send(Notification {
-                    message: ConnectMessage::Connected,
-                })
-                .await
-                .is_err()
-            {
-                warn!(
-                    datasource = %uid.0,
-                    path = "tasks",
-                    "Could not send connect notification",
-                );
-            };
+
+            fn datasource_instance_settings(&self) -> Option<&DataSourceInstanceSettings> {
+                self.plugin_context.datasource_instance_settings.as_ref()
+            }
         }
-        let stream = match path {
-            Path::Tasks => self.stream_tasks(&uid).await?,
-            Path::TaskDetails { task_id } => self.stream_task_details(&uid, task_id).await,
-            Path::Resources => self.stream_resources(&uid).await,
-        };
-        Ok(Box::pin(ClientDisconnect(stream, tx)))
-    }
-
-    async fn publish_stream(
-        &self,
-        _request: backend::PublishStreamRequest,
-    ) -> Result<backend::PublishStreamResponse, Self::Error> {
-        debug!("Publishing to stream is not implemented");
-        unimplemented!()
-    }
+    };
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("Error querying backend for {}", .ref_id)]
-pub struct QueryError {
-    ref_id: String,
-}
-
-impl backend::DataQueryError for QueryError {
-    fn ref_id(self) -> String {
-        self.ref_id
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-struct ConsoleQueryDataRequest {
-    #[serde(flatten)]
-    path: Path,
-}
-
-#[backend::async_trait]
-impl backend::DataService for ConsolePlugin {
-    type QueryError = QueryError;
-    type Iter = backend::BoxDataResponseIter<Self::QueryError>;
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
-        Box::new(request.queries.into_iter().map(move |x| {
-            let uid = request
-                .plugin_context
-                .datasource_instance_settings
-                .as_ref()
-                .map(|ds| ds.uid.clone());
-
-            let mut frame = data::Frame::new("");
-
-            if let Some(uid) = &uid {
-                if let Ok(path) =
-                    serde_json::from_value(x.json).map(|req: ConsoleQueryDataRequest| req.path)
-                {
-                    frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
-                }
-            }
-
-            Ok(backend::DataResponse::new(
-                x.ref_id,
-                vec![frame.check().unwrap()],
-            ))
-        }))
-    }
-}
-
-#[track_caller]
-pub fn spawn_named<T>(
-    _name: &str,
-    task: impl std::future::Future<Output = T> + Send + 'static,
-) -> tokio::task::JoinHandle<T>
-where
-    T: Send + 'static,
-{
-    tokio::task::Builder::new().name(_name).spawn(task)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn deserialize_path() {
-        assert_eq!(
-            serde_json::from_str::<Path>(r#"{"path": "tasks"}"#).unwrap(),
-            Path::Tasks
-        );
-        assert_eq!(
-            serde_json::from_str::<Path>(r#"{"path": "task", "taskId": 1}"#).unwrap(),
-            Path::TaskDetails { task_id: TaskId(1) }
-        );
-        assert_eq!(
-            serde_json::from_str::<Path>(r#"{"path": "resources"}"#).unwrap(),
-            Path::Resources
-        );
-    }
-
-    #[test]
-    fn deserialize_request() {
-        assert_eq!(
-            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "tasks"}"#).unwrap(),
-            ConsoleQueryDataRequest { path: Path::Tasks }
-        );
-        assert_eq!(
-            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "task", "taskId": 1}"#)
-                .unwrap(),
-            ConsoleQueryDataRequest {
-                path: Path::TaskDetails { task_id: TaskId(1) }
-            }
-        );
-        assert_eq!(
-            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "resources"}"#).unwrap(),
-            ConsoleQueryDataRequest {
-                path: Path::Resources
-            }
-        );
-    }
-}
+impl_request_ext!(backend::RunStreamRequest);
+impl_request_ext!(backend::SubscribeStreamRequest);

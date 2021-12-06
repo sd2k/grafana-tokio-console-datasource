@@ -14,7 +14,7 @@ pub struct Connection {
 }
 
 #[derive(Debug)]
-enum State {
+pub(crate) enum State {
     Connected {
         client: InstrumentClient<Channel>,
         stream: Streaming<Update>,
@@ -65,6 +65,13 @@ impl Connection {
         &self.target
     }
 
+    pub(crate) async fn try_connect(target: Uri) -> Result<State, Box<dyn Error + Send + Sync>> {
+        let mut client = InstrumentClient::connect(target.clone()).await?;
+        let request = tonic::Request::new(InstrumentRequest {});
+        let stream = client.watch_updates(request).await?.into_inner();
+        Ok(State::Connected { client, stream })
+    }
+
     async fn connect(&mut self) {
         const MAX_BACKOFF: Duration = Duration::from_secs(5);
 
@@ -75,13 +82,7 @@ impl Connection {
                 tracing::debug!(reconnect_in = ?backoff, "reconnecting");
                 tokio::time::sleep(backoff).await;
             }
-            let try_connect = async {
-                let mut client = InstrumentClient::connect(self.target.clone()).await?;
-                let request = tonic::Request::new(InstrumentRequest {});
-                let stream = client.watch_updates(request).await?.into_inner();
-                Ok::<State, Box<dyn Error + Send + Sync>>(State::Connected { client, stream })
-            };
-            self.state = match try_connect.await {
+            self.state = match Self::try_connect(self.target.clone()).await {
                 Ok(connected) => {
                     tracing::debug!("connected successfully!");
                     connected

@@ -3,7 +3,7 @@ use tracing_subscriber::{filter::filter_fn, prelude::*};
 use grafana_tokio_console_datasource::ConsolePlugin;
 
 #[grafana_plugin_sdk::main(
-    services(data, stream),
+    services(data, diagnostics, stream),
     init_subscriber = false,
     shutdown_handler = "0.0.0.0:10001"
 )]
