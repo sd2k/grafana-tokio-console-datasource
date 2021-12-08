@@ -11,7 +11,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::spawn_named;
 
-use super::{ConnectMessage, ConsolePlugin, Error, Notification, Path, RequestExt};
+use super::{ConnectMessage, ConsolePlugin, DatasourceUid, Error, Notification, Path};
 
 /// Struct used to notify a receiver that a client has disconnected.
 ///
@@ -101,6 +101,7 @@ impl backend::StreamService for ConsolePlugin {
         let initial_data = match self.initial_data(&uid, &path) {
             Some(s) => s,
             None => {
+                info!("No state found; connecting to console");
                 self.connect(datasource_settings).await.map_err(|e| {
                     error!(error = ?e, "error connecting to console");
                     e
@@ -162,6 +163,7 @@ impl backend::StreamService for ConsolePlugin {
         let stream = match path {
             Path::Tasks => self.stream_tasks(&uid).await?,
             Path::TaskDetails { task_id } => self.stream_task_details(&uid, task_id).await,
+            Path::TaskHistogram { task_id } => self.stream_task_histogram(&uid, task_id).await,
             Path::Resources => self.stream_resources(&uid).await,
         };
         if let Some(ref x) = self.state.get_mut(&uid) {
@@ -196,3 +198,44 @@ impl backend::StreamService for ConsolePlugin {
         unimplemented!()
     }
 }
+
+/// Extension trait providing some convenience methods for getting the `path` and `datasource_uid`.
+trait StreamRequestExt {
+    /// The path passed as part of the request, as a `&str`.
+    fn raw_path(&self) -> &str;
+    /// The datasource instance settings passed in the request.
+    fn datasource_instance_settings(&self) -> Option<&backend::DataSourceInstanceSettings>;
+
+    /// The parsed `Path`, or an `Error` if parsing failed.
+    fn path(&self) -> Result<Path, Error> {
+        let path = self.raw_path();
+        path.parse()
+            .map_err(|_| Error::UnknownPath(path.to_string()))
+    }
+
+    /// The datasource UID of the request, or an `Error` if the request didn't include
+    /// any datasource settings.
+    fn datasource_uid(&self) -> Result<DatasourceUid, Error> {
+        self.datasource_instance_settings()
+            .ok_or(Error::MissingDatasource)
+            .map(|x| DatasourceUid(x.uid.clone()))
+    }
+}
+
+macro_rules! impl_stream_request_ext {
+    ($request: path) => {
+        impl StreamRequestExt for $request {
+            fn raw_path(&self) -> &str {
+                self.path.as_str()
+            }
+
+            fn datasource_instance_settings(&self) -> Option<&backend::DataSourceInstanceSettings> {
+                self.plugin_context.datasource_instance_settings.as_ref()
+            }
+        }
+    };
+}
+
+impl_stream_request_ext!(backend::RunStreamRequest);
+impl_stream_request_ext!(backend::SubscribeStreamRequest);
+impl_stream_request_ext!(backend::PublishStreamRequest);

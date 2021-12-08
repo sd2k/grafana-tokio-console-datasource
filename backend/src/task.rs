@@ -13,7 +13,7 @@ use crate::{
     util::Percentage,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct TaskId(pub u64);
 
 impl fmt::Display for TaskId {

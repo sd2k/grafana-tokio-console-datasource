@@ -43,7 +43,7 @@ impl backend::DiagnosticsService for ConsolePlugin {
 
     async fn collect_metrics(
         &self,
-        request: backend::CollectMetricsRequest,
+        _request: backend::CollectMetricsRequest,
     ) -> Result<backend::CollectMetricsResponse, Self::CollectMetricsError> {
         todo!()
     }

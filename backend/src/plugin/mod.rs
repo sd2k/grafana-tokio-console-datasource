@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt,
     io::Cursor,
     str::FromStr,
@@ -10,16 +10,12 @@ use std::{
 use chrono::prelude::*;
 use console_api::{instrument::Update, tasks::TaskDetails};
 use dashmap::DashMap;
-use futures::StreamExt;
-use grafana_plugin_sdk::{
-    backend::{self, DataSourceInstanceSettings},
-    data,
-    prelude::*,
-};
+use futures::{StreamExt, TryStreamExt};
+use grafana_plugin_sdk::{backend, data, prelude::*};
 use serde::Deserialize;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::{
     connection::Connection,
@@ -31,6 +27,7 @@ use crate::{
 #[path = "data.rs"]
 mod data_service_impl;
 mod diagnostics;
+mod resource;
 mod stream;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -81,6 +78,8 @@ enum Path {
     Tasks,
     #[serde(rename = "task", rename_all = "camelCase")]
     TaskDetails { task_id: TaskId },
+    #[serde(rename = "taskHistogram", rename_all = "camelCase")]
+    TaskHistogram { task_id: TaskId },
     #[serde(rename = "resources")]
     Resources,
 }
@@ -90,6 +89,7 @@ impl fmt::Display for Path {
         match self {
             Self::Tasks => write!(f, "tasks"),
             Self::TaskDetails { task_id } => write!(f, "task/{}", task_id),
+            Self::TaskHistogram { task_id } => write!(f, "taskHistogram/{}", task_id),
             Self::Resources => write!(f, "resources"),
         }
     }
@@ -106,6 +106,13 @@ impl FromStr for Path {
             (Some("task"), Some(task_id)) => task_id
                 .parse()
                 .map(|id| Self::TaskDetails {
+                    task_id: TaskId(id),
+                })
+                .map_err(|_| Error::InvalidTaskId(task_id.to_string())),
+            (Some("taskHistogram"), None) => Err(Error::MissingTaskId),
+            (Some("taskHistogram"), Some(task_id)) => task_id
+                .parse()
+                .map(|id| Self::TaskHistogram {
                     task_id: TaskId(id),
                 })
                 .map_err(|_| Error::InvalidTaskId(task_id.to_string())),
@@ -126,6 +133,13 @@ struct Notification {
     message: ConnectMessage,
 }
 
+#[derive(Debug)]
+enum TaskDetailsStream {
+    NotFound,
+    Connected(JoinHandle<()>),
+    Removed,
+}
+
 /// An instance of a Console datasource.
 ///
 /// This is moved into a spawned task, and communicates back
@@ -134,10 +148,23 @@ struct Notification {
 struct ConsoleInstance {
     connection: Connection,
 
-    streams: HashSet<TaskId>,
+    task_detail_tasks: HashMap<TaskId, TaskDetailsStream>,
 
     notifications: mpsc::Receiver<Notification>,
     stream_count: usize,
+}
+
+impl ConsoleInstance {
+    fn should_subscribe(&self, task: &Task) -> bool {
+        matches!(
+            self.task_detail_tasks.get(&task.id),
+            None | Some(TaskDetailsStream::Removed)
+        ) && (task.is_running() || task.is_awakened() || task.total_polls() > 10)
+    }
+
+    fn should_unsubscribe(&self, task: &Task) -> bool {
+        task.is_completed() || task.idle(SystemTime::now()) > Duration::from_secs(60)
+    }
 }
 
 #[derive(Debug)]
@@ -156,8 +183,11 @@ struct DatasourceState {
     tasks_frame_tx: Option<mpsc::Sender<Result<data::Frame, Error>>>,
     tasks_frame_rx: Option<mpsc::Receiver<Result<data::Frame, Error>>>,
 
-    /// Map from task ID to channel of incoming task details.
+    /// Map from task ID to sender of incoming task details.
     task_details_frame_txs: HashMap<TaskId, mpsc::Sender<Result<data::Frame, Error>>>,
+
+    /// Map from task ID to sender of task histogram frames.
+    task_details_histogram_frame_txs: HashMap<TaskId, mpsc::Sender<Result<data::Frame, Error>>>,
 
     /// The incoming stream of resource updates, to be forwarded to subscribers as `Frame`s.
     // resources_stream_tx: Option<mpsc::Sender<Result<data::Frame, Error>>>,
@@ -183,6 +213,7 @@ impl DatasourceState {
             tasks_frame_tx: Some(tasks_frame_tx),
             tasks_frame_rx: Some(tasks_frame_rx),
             task_details_frame_txs: Default::default(),
+            task_details_histogram_frame_txs: Default::default(),
             // resources_stream_tx: Default::default(),
             // resources_stream_rx: Default::default(),
             notification_tx,
@@ -191,6 +222,9 @@ impl DatasourceState {
         (s, notification_rx)
     }
 
+    /// Process and update using a general `Update`, which contains information about new and updated
+    /// metadata and tasks.
+    #[tracing::instrument(level = "debug", skip(self, update))]
     async fn update(&mut self, update: Update) {
         self.last_updated = Some(SystemTime::now());
         if let Some(new_metadata) = update.new_metadata {
@@ -206,12 +240,14 @@ impl DatasourceState {
         if let Some(task_update) = update.task_update {
             let mut stats_update = task_update.stats_update;
             let mut updated_ids = Vec::with_capacity(task_update.new_tasks.len());
+            debug!(new_tasks = task_update.new_tasks.len(), "Adding new tasks");
             for new_task in task_update.new_tasks {
                 if let Some(task) = Task::from_proto(&self.metas, &mut stats_update, new_task) {
                     updated_ids.push(task.id);
                     self.tasks.insert(task.id, task);
                 }
             }
+            debug!(updated_tasks = stats_update.len(), "Updating task stats");
             for (id, stats) in stats_update {
                 if let Some(task) = self.tasks.get_mut(&TaskId(id)) {
                     updated_ids.push(task.id);
@@ -223,12 +259,18 @@ impl DatasourceState {
             let tasks_frame = self.get_tasks_frame(Some(&updated_ids));
             if let Some(tx) = &self.tasks_frame_tx {
                 if let Err(e) = tx.send(tasks_frame).await {
-                    error!(datasource_uid = %self.uid.0, error = %e, "error sending tasks frame")
+                    error!(datasource_uid = %self.uid.0, error = %e, "Error sending tasks frame; replacing channel");
+                    let (tx, rx) = mpsc::channel(128);
+                    self.tasks_frame_tx = Some(tx);
+                    self.tasks_frame_rx = Some(rx);
                 }
             }
         }
     }
 
+    /// Process a single task's `TaskDetails` update, which contains an updated
+    /// histogram of poll times.
+    #[tracing::instrument(level = "debug", skip(self, update))]
     async fn update_details(&mut self, update: TaskDetails) {
         if let TaskDetails {
             task_id: Some(id),
@@ -237,24 +279,50 @@ impl DatasourceState {
         } = update
         {
             let task_id = TaskId(id.id);
+            // Use a bool to track this so we don't hold a mutable reference to
+            // `self.tasks` after we're done with it.
+            let mut should_send = false;
+
             if let Some(task) = self.tasks.get_mut(&task_id) {
+                // Update our own state.
+                trace!(task_id = %task_id, "Updating poll times histogram for task");
                 task.histogram = hdrhistogram::serialization::Deserializer::new()
                     .deserialize(&mut Cursor::new(&data))
                     .ok();
+                should_send = true;
+            }
+
+            if should_send {
+                // Send updates to any downstream consumers.
                 if let Some(tx) = self.task_details_frame_txs.get(&task_id) {
                     if tx.send(self.get_task_details_frame(task_id)).await.is_err() {
-                        debug!(
+                        info!(
                             datasource_uid = %self.uid.0,
                             task_id = %task_id.0,
-                            "dropping task details transmitter for task",
+                            "Dropping task details transmitter for task",
                         );
                         self.task_details_frame_txs.remove(&task_id);
+                    }
+                }
+                if let Some(tx) = self.task_details_histogram_frame_txs.get(&task_id) {
+                    if tx
+                        .send(self.get_task_histogram_frame(task_id))
+                        .await
+                        .is_err()
+                    {
+                        info!(
+                            datasource_uid = %self.uid.0,
+                            task_id = %task_id.0,
+                            "Dropping task histogram transmitter for task",
+                        );
+                        self.task_details_histogram_frame_txs.remove(&task_id);
                     }
                 }
             }
         }
     }
 
+    /// Get a `Frame` containing the latest task data, optionally only for a subset of tasks.
     fn get_tasks_frame(&self, updated_ids: Option<&[TaskId]>) -> Result<data::Frame, Error> {
         let len = updated_ids.map_or_else(|| self.tasks.len(), |x| x.len());
         let iter: Box<dyn Iterator<Item = &Task>> = match updated_ids {
@@ -343,8 +411,25 @@ impl DatasourceState {
         Ok(frame)
     }
 
+    /// Get a `Frame` for a single task.
     fn get_task_details_frame(&self, id: TaskId) -> Result<data::Frame, Error> {
         self.get_tasks_frame(Some(&[id]))
+    }
+
+    /// Get a `Frame` holding the buckets and counts of the poll times histogram for
+    /// a single task.
+    fn get_task_histogram_frame(&self, id: TaskId) -> Result<data::Frame, Error> {
+        let task = self.tasks.get(&id).ok_or(Error::TaskNotFound(id))?;
+        let (chart_data, chart_metadata) = task.make_chart_data(100);
+        // TODO: this doesn't quite work...
+        let width = (chart_metadata.max_bucket - chart_metadata.min_bucket) / 100;
+        let x: Vec<_> = chart_data
+            .iter()
+            .enumerate()
+            .map(|x| chart_metadata.min_value + (width * x.0 as u64))
+            .collect();
+        let fields = [x.into_field("x"), chart_data.into_field("y")];
+        Ok(fields.into_frame(id.to_string()))
     }
 
     /// Convert this state into an owned `Frame`.
@@ -352,6 +437,7 @@ impl DatasourceState {
         match path {
             Path::Tasks => self.get_tasks_frame(None),
             Path::TaskDetails { task_id } => self.get_task_details_frame(*task_id),
+            Path::TaskHistogram { task_id } => self.get_task_histogram_frame(*task_id),
             Path::Resources => todo!(),
         }
     }
@@ -364,7 +450,7 @@ fn to_datetime(s: SystemTime) -> DateTime<Utc> {
 fn as_nanos(d: Duration) -> Option<u64> {
     d.as_nanos()
         .try_into()
-        .map_err(|e| error!(error = ?e, "error getting duration as nanos"))
+        .map_err(|e| error!(error = ?e, "Error getting duration as nanos"))
         .ok()
 }
 
@@ -374,6 +460,10 @@ pub struct ConsolePlugin {
 }
 
 impl ConsolePlugin {
+    /// Connect to a console backend and begin streaming updates from the console.
+    ///
+    /// This spawns a single task named 'manage connection' which takes ownership of the connection
+    /// and handles any new data received from it.
     async fn connect(&self, datasource: backend::DataSourceInstanceSettings) -> Result<(), Error> {
         let datasource_uid = DatasourceUid(datasource.uid);
         let url = datasource
@@ -397,33 +487,81 @@ impl ConsolePlugin {
         spawn_named("manage connection", async move {
             let mut instance = ConsoleInstance {
                 connection,
-                streams: Default::default(),
+                task_detail_tasks: Default::default(),
                 notifications: notification_rx,
                 stream_count: 0,
             };
-            let mut task_details_stream = futures::stream::SelectAll::new();
+            let (task_details_tx, mut task_details_rx) = mpsc::channel(256);
             loop {
                 tokio::select! {
+
                     instrument_update = instance.connection.next_update() => {
                         if let Some(mut s) = state.get_mut(&uid_clone) {
+                            // First, update the state with the new and updated task data.
                             s.update(instrument_update).await;
-                            for task_id in s.tasks.keys() {
-                                if !instance.streams.contains(task_id) {
-                                    if let Ok(stream) = instance
-                                        .connection
-                                        .watch_details(task_id.0)
-                                        .await {
-                                        task_details_stream.push(stream);
-                                        instance.streams.insert(*task_id);
+
+                            // Next check if we need to subscribe to any new task details streams,
+                            // or unsubscribe from any finished tasks.
+                            debug!(n_tasks = s.tasks.len(), "checking for old or new tasks");
+                            for (task_id, task) in &s.tasks {
+                                // Remove any completed tasks.
+                                if instance.should_unsubscribe(task) {
+                                    instance.task_detail_tasks.entry(*task_id).and_modify(|t| {
+                                        if let TaskDetailsStream::Connected(handle) = t {
+                                            debug!(task_id = %task_id, "Unsubscribing from completed task details");
+                                            handle.abort();
+                                        }
+                                        *t = TaskDetailsStream::Removed;
+                                    });
+                                } else if instance.should_subscribe(&task) {
+                                    match instance.connection.watch_details(task_id.0).await {
+                                        Ok(stream) => {
+                                            let tid = *task_id;
+                                            let task_details_tx = task_details_tx.clone();
+                                            trace!(task_id = %tid, "Subscribing to task details");
+                                            let handle = spawn_named("manage task details", async move {
+                                                let mut stream = stream.map_err(|e| (e, tid));
+                                                loop {
+                                                    match stream.next().await {
+                                                        Some(x) => if let Err(e) = task_details_tx.send(x).await {
+                                                            warn!(task_id = %tid, error = %e, "Could not send task details; dropping");
+                                                            return;
+                                                        },
+                                                        None => {
+                                                            debug!(task_id = %tid, "Task details stream completed");
+                                                            return
+                                                        },
+                                                    }
+                                                }
+                                            });
+                                            instance.task_detail_tasks.insert(*task_id, TaskDetailsStream::Connected(handle));
+                                        },
+                                        Err(e) => {
+                                            warn!(task_id = %task_id, error = %e, "Error subscribing to task details stream");
+                                            instance.task_detail_tasks.insert(*task_id, TaskDetailsStream::NotFound);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    Some(Ok(task_details_update)) = task_details_stream.next() => {
-                        if let Some(mut s) = state.get_mut(&uid_clone) {
-                            s.update_details(task_details_update).await;
+                    Some(task_details_update) = task_details_rx.recv() => {
+                        match task_details_update {
+                            Ok(update) => {
+                                if let Some(mut s) = state.get_mut(&uid_clone) {
+                                    s.update_details(update).await;
+                                }
+                            },
+                            Err((_, task_id)) => {
+                                instance.task_detail_tasks.entry(task_id).and_modify(|t| {
+                                    if let TaskDetailsStream::Connected(handle) = t {
+                                        debug!(task_id = %task_id, "Shutting down task details stream");
+                                        handle.abort();
+                                    }
+                                    *t = TaskDetailsStream::Removed;
+                                });
+                            }
                         }
                     }
 
@@ -431,8 +569,14 @@ impl ConsolePlugin {
                         if let Some(n) = notification {
                             use ConnectMessage::{Connected, Disconnected};
                             match n.message {
-                                Connected => instance.stream_count += 1,
-                                Disconnected => instance.stream_count = instance.stream_count.saturating_sub(1),
+                                Connected => {
+                                    instance.stream_count += 1;
+                                    info!(stream_count = instance.stream_count, "New stream registered");
+                                },
+                                Disconnected => {
+                                    instance.stream_count = instance.stream_count.saturating_sub(1);
+                                    info!(stream_count = instance.stream_count, "Stream deregistered");
+                                },
                             };
                         } else {
                             // TODO: figure out why the sender would have dropped and how to handle it properly
@@ -450,6 +594,13 @@ impl ConsolePlugin {
             }
         });
         Ok(())
+    }
+
+    async fn get_tasks(&self, datasource_uid: &DatasourceUid) -> Result<Vec<TaskId>, Error> {
+        self.state
+            .get(datasource_uid)
+            .map(|s| s.tasks.keys().copied().collect())
+            .ok_or(Error::DatasourceInstanceNotFound)
     }
 
     async fn stream_tasks(
@@ -496,6 +647,29 @@ impl ConsolePlugin {
         }))
     }
 
+    async fn stream_task_histogram(
+        &self,
+        datasource_uid: &DatasourceUid,
+        task_id: TaskId,
+    ) -> <Self as backend::StreamService>::Stream {
+        let state = self.state.get_mut(datasource_uid);
+
+        let (tx, rx) = mpsc::channel(128);
+        state
+            .ok_or(Error::DatasourceInstanceNotFound)
+            .expect("state should be present for datasource")
+            .task_details_histogram_frame_txs
+            .insert(task_id, tx);
+        Box::pin(ReceiverStream::new(rx).map(|res| {
+            res.and_then(|frame| {
+                frame
+                    .check()
+                    .map_err(Error::Data)
+                    .and_then(|f| Ok(backend::StreamPacket::from_frame(f)?))
+            })
+        }))
+    }
+
     async fn stream_resources(
         &self,
         _datasource_uid: &DatasourceUid,
@@ -514,43 +688,3 @@ impl ConsolePlugin {
         self.state.get(datasource_uid).map(|s| s.to_frame(path))
     }
 }
-
-/// Extension trait providing some convenience methods for getting the `path` and `datasource_uid`.
-trait RequestExt {
-    /// The path passed as part of the request, as a `&str`.
-    fn raw_path(&self) -> &str;
-    /// The datasource instance settings passed in the request.
-    fn datasource_instance_settings(&self) -> Option<&DataSourceInstanceSettings>;
-
-    /// The parsed `Path`, or an `Error` if parsing failed.
-    fn path(&self) -> Result<Path, Error> {
-        let path = self.raw_path();
-        path.parse()
-            .map_err(|_| Error::UnknownPath(path.to_string()))
-    }
-
-    /// The datasource UID of the request, or an `Error` if the request didn't include
-    /// any datasource settings.
-    fn datasource_uid(&self) -> Result<DatasourceUid, Error> {
-        self.datasource_instance_settings()
-            .ok_or(Error::MissingDatasource)
-            .map(|x| DatasourceUid(x.uid.clone()))
-    }
-}
-
-macro_rules! impl_request_ext {
-    ($request: path) => {
-        impl RequestExt for $request {
-            fn raw_path(&self) -> &str {
-                self.path.as_str()
-            }
-
-            fn datasource_instance_settings(&self) -> Option<&DataSourceInstanceSettings> {
-                self.plugin_context.datasource_instance_settings.as_ref()
-            }
-        }
-    };
-}
-
-impl_request_ext!(backend::RunStreamRequest);
-impl_request_ext!(backend::SubscribeStreamRequest);

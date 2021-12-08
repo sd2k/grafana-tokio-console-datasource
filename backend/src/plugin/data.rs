@@ -26,22 +26,23 @@ struct ConsoleQueryDataRequest {
 impl backend::DataService for ConsolePlugin {
     type QueryError = QueryError;
     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+    async fn query_data(&self, mut request: backend::QueryDataRequest) -> Self::Iter {
         Box::new(request.queries.into_iter().map(move |x| {
             let uid = request
                 .plugin_context
                 .datasource_instance_settings
-                .as_ref()
-                .map(|ds| ds.uid.clone());
+                .take()
+                .map(|x| x.uid)
+                .ok_or_else(|| QueryError {
+                    ref_id: x.ref_id.clone(),
+                })?;
 
             let mut frame = data::Frame::new("");
 
-            if let Some(uid) = &uid {
-                if let Ok(path) =
-                    serde_json::from_value(x.json).map(|req: ConsoleQueryDataRequest| req.path)
-                {
-                    frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
-                }
+            if let Ok(path) =
+                serde_json::from_value(x.json).map(|req: ConsoleQueryDataRequest| req.path)
+            {
+                frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
             }
 
             Ok(backend::DataResponse::new(
@@ -68,6 +69,10 @@ mod tests {
             Path::TaskDetails { task_id: TaskId(1) }
         );
         assert_eq!(
+            serde_json::from_str::<Path>(r#"{"path": "taskHistogram", "taskId": 1}"#).unwrap(),
+            Path::TaskHistogram { task_id: TaskId(1) }
+        );
+        assert_eq!(
             serde_json::from_str::<Path>(r#"{"path": "resources"}"#).unwrap(),
             Path::Resources
         );
@@ -80,10 +85,12 @@ mod tests {
             ConsoleQueryDataRequest { path: Path::Tasks }
         );
         assert_eq!(
-            serde_json::from_str::<ConsoleQueryDataRequest>(r#"{"path": "task", "taskId": 1}"#)
-                .unwrap(),
+            serde_json::from_str::<ConsoleQueryDataRequest>(
+                r#"{"path": "taskHistogram", "taskId": 1}"#
+            )
+            .unwrap(),
             ConsoleQueryDataRequest {
-                path: Path::TaskDetails { task_id: TaskId(1) }
+                path: Path::TaskHistogram { task_id: TaskId(1) }
             }
         );
         assert_eq!(
