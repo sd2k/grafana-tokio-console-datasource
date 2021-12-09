@@ -351,8 +351,9 @@ impl DatasourceState {
         let mut wakes = Vec::with_capacity(len);
         let mut waker_clones = Vec::with_capacity(len);
         let mut waker_drops = Vec::with_capacity(len);
-        let mut last_wake = Vec::with_capacity(len);
+        let mut last_wakes = Vec::with_capacity(len);
         let mut self_wakes = Vec::with_capacity(len);
+        let mut self_wake_percents = Vec::with_capacity(len);
 
         for task in iter {
             timestamps.push(now);
@@ -382,8 +383,9 @@ impl DatasourceState {
             wakes.push(task.wakes());
             waker_clones.push(task.waker_clones());
             waker_drops.push(task.waker_drops());
-            last_wake.push(task.last_wake().map(to_datetime));
+            last_wakes.push(task.last_wake().map(to_datetime));
             self_wakes.push(task.self_wakes());
+            self_wake_percents.push(task.self_wake_percent());
         }
         let frame = data::Frame::new("tasks").with_fields([
             timestamps.into_field("Time"),
@@ -405,8 +407,17 @@ impl DatasourceState {
             wakes.into_field("Wakes"),
             waker_clones.into_field("Waker clones"),
             waker_drops.into_field("Waker drops"),
-            last_wake.into_opt_field("Last wake"),
+            last_wakes.into_opt_field("Last wake"),
             self_wakes.into_field("Self wakes"),
+            self_wake_percents
+                .into_field("Self wake percent")
+                .with_config(data::FieldConfig {
+                    description: Some(
+                        "The percentage of this task's total wakeups that are self wakes."
+                            .to_string(),
+                    ),
+                    ..Default::default()
+                }),
         ]);
         Ok(frame)
     }
@@ -421,12 +432,11 @@ impl DatasourceState {
     fn get_task_histogram_frame(&self, id: TaskId) -> Result<data::Frame, Error> {
         let task = self.tasks.get(&id).ok_or(Error::TaskNotFound(id))?;
         let (chart_data, chart_metadata) = task.make_chart_data(100);
-        // TODO: this doesn't quite work...
         let width = (chart_metadata.max_bucket - chart_metadata.min_bucket) / 100;
         let x: Vec<_> = chart_data
             .iter()
             .enumerate()
-            .map(|x| chart_metadata.min_value + (width * x.0 as u64))
+            .map(|x| chart_metadata.min_bucket + (width * x.0 as u64))
             .collect();
         let fields = [x.into_field("x"), chart_data.into_field("y")];
         Ok(fields.into_frame(id.to_string()))
@@ -513,7 +523,7 @@ impl ConsolePlugin {
                                         }
                                         *t = TaskDetailsStream::Removed;
                                     });
-                                } else if instance.should_subscribe(&task) {
+                                } else if instance.should_subscribe(task) {
                                     match instance.connection.watch_details(task_id.0).await {
                                         Ok(stream) => {
                                             let tid = *task_id;
