@@ -37,7 +37,7 @@ export class QueryEditor extends PureComponent<Props> {
     return (
       <div className="gf-form">
         <Select options={pathOptions} value={path} onChange={this.onPathChange} />
-        {(query.path === ConsolePathName.TaskDetails || query.path === ConsolePathName.TaskHistogram) ? (
+        {query.path === ConsolePathName.TaskDetails || query.path === ConsolePathName.TaskHistogram ? (
           <Input value={query.rawTaskId} onChange={this.onTaskIdChange} />
         ) : null}
       </div>

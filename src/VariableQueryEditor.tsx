@@ -8,9 +8,7 @@ interface VariableQueryProps {
   onChange: (query: VariableQuery, path?: VariableQueryPathName) => void;
 }
 
-const pathOptions = [
-  { label: 'Tasks', value: VariableQueryPathName.Tasks, description: 'Query available tasks' },
-];
+const pathOptions = [{ label: 'Tasks', value: VariableQueryPathName.Tasks, description: 'Query available tasks' }];
 
 export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, query }) => {
   const [state, setState] = useState(query);
@@ -26,9 +24,8 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
     });
 
   return (
-    <InlineField label='Query kind' labelWidth={20} >
+    <InlineField label="Query kind" labelWidth={20}>
       <Select width={100} options={pathOptions} value={state.path} onChange={handleChange} onBlur={savePath} />
     </InlineField>
   );
 };
-

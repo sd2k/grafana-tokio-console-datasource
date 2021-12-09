@@ -14,11 +14,11 @@ export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOp
     return query;
   }
 
-  streamOptionsProvider = (): StreamingFrameOptions => ({ maxLength: 10000 })
+  streamOptionsProvider = (): StreamingFrameOptions => ({ maxLength: 10000 });
 
   async metricFindQuery(query: VariableQuery): Promise<MetricFindValue[]> {
     if (query.path === VariableQueryPathName.Tasks) {
-      const url = "/api/plugins/grafana-tokio-console-datasource/resources/variablevalues/tasks";
+      const url = '/api/plugins/grafana-tokio-console-datasource/resources/variablevalues/tasks';
       let tasks = await getBackendSrv().get(url, { datasourceUid: this.uid });
       return tasks.map((taskId: number) => ({ text: taskId.toString() }));
     }
