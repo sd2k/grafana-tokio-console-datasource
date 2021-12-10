@@ -101,6 +101,42 @@ You'll need to clone Grafana and run a specific branch to get some nice extra th
 
    You can then head to the datasource's Dashboards tab and import the provided dashboards.
 
+## Cross compiling
+
+### From MacOS
+
+1. Install the relevant cross compiler toolchains. Using Homebrew:
+
+   ```bash
+   brew tap messense/macos-cross-toolchains
+   brew install armv7-unknown-linux-musleabihf
+   brew install aarch64-unknown-linux-musl
+   brew install x86_64-unknown-linux-musl
+   brew install mingw-w64
+   ```
+
+2. Install the relevant Rust targets. Using `rustup`:
+
+   ```bash
+   rustup target add armv7-unknown-linux-musleabihf
+   rustup target add aarch64-apple-darwin
+   rustup target add x86_64-apple-darwin
+   rustup target add aarch64-unknown-linux-musl
+   rustup target add x86_64-unknown-linux-musl
+   rustup target add x86_64-pc-windows-gnu
+   ```
+
+3. Run the following to compile the plugin in release mode for each target:
+
+   ```bash
+   CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER=armv7-unknown-linux-musleabihf-ld cargo build --release --target armv7-unknown-linux-musleabihf
+   cargo build --release --target aarch64-apple-darwin
+   cargo build --release --target x86_64-apple-darwin
+   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-unknown-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu
+   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-unknown-linux-musl-gcc cargo build --release --target aarch64-unknown-linux-musl
+   CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc cargo build --release --target x86_64-pc-windows-gnu
+   ```
+
 [`console`]: https://github.com/tokio-rs/console
 [console-frontend]: https://github.com/tokio-rs/console#extremely-cool-and-amazing-screenshots
 [`cargo-xtask`]: https://github.com/matklad/cargo-xtask
