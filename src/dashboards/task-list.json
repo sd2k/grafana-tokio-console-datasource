@@ -22,7 +22,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "iteration": 1638530103351,
+  "iteration": 1639128882432,
   "links": [],
   "liveNow": true,
   "panels": [
@@ -82,8 +82,8 @@
             "type": "grafana-tokio-console-datasource",
             "uid": "${datasource}"
           },
-          "refId": "A",
-          "path": "tasks"
+          "path": "tasks",
+          "refId": "A"
         }
       ],
       "title": "Total tasks",
@@ -156,8 +156,8 @@
             "type": "grafana-tokio-console-datasource",
             "uid": "${datasource}"
           },
-          "refId": "A",
-          "path": "tasks"
+          "path": "tasks",
+          "refId": "A"
         }
       ],
       "title": "Running tasks",
@@ -255,8 +255,8 @@
             "type": "grafana-tokio-console-datasource",
             "uid": "${datasource}"
           },
-          "refId": "A",
-          "path": "tasks"
+          "path": "tasks",
+          "refId": "A"
         }
       ],
       "title": "Idle tasks",
@@ -351,8 +351,8 @@
             "type": "grafana-tokio-console-datasource",
             "uid": "${datasource}"
           },
-          "refId": "A",
-          "path": "tasks"
+          "path": "tasks",
+          "refId": "A"
         }
       ],
       "title": "Completed tasks",
@@ -431,6 +431,16 @@
               {
                 "id": "custom.width",
                 "value": 75
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "Task Details",
+                    "url": "/d/WRwa_d27z/tokio-task-details?orgId=1&var-datasource=${datasource:queryparams}&var-task_id=${__value.numeric}"
+                  }
+                ]
               }
             ]
           },
@@ -685,8 +695,8 @@
             "type": "grafana-tokio-console-datasource",
             "uid": "${datasource}"
           },
-          "refId": "A",
-          "path": "tasks"
+          "path": "tasks",
+          "refId": "A"
         }
       ],
       "title": "Tasks",
@@ -969,8 +979,8 @@
             "type": "grafana-tokio-console-datasource",
             "uid": "${datasource}"
           },
-          "refId": "A",
-          "path": "tasks"
+          "path": "tasks",
+          "refId": "A"
         }
       ],
       "title": "Polls over time",
@@ -1067,6 +1077,7 @@
   "timepicker": {},
   "timezone": "",
   "title": "Tokio / Task List",
-  "version": 31,
+  "uid": "Gk_Bndhnz",
+  "version": 5,
   "weekStart": ""
 }
