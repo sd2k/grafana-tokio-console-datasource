@@ -4,7 +4,6 @@ use grafana_plugin_sdk::backend;
 use http::{Response, StatusCode};
 use serde::Serialize;
 use thiserror::Error;
-use url::{ParseError, Url};
 
 use crate::ConsolePlugin;
 
@@ -15,14 +14,11 @@ pub enum ResourceError {
     #[error("Path not found")]
     NotFound,
 
-    #[error("Invalid URI: {0}")]
-    InvalidUri(#[from] ParseError),
-
     #[error("Plugin error: {0}")]
     Plugin(#[from] super::Error),
 
-    #[error("Missing datasource UID")]
-    MissingDatasourceUid,
+    #[error("Missing datasource settings")]
+    MissingDatasourceSettings,
 
     #[error("Console not connected; please load a dashboard connected to this console first.")]
     ConsoleNotConnected,
@@ -37,9 +33,8 @@ impl backend::ErrIntoHttpResponse for ResourceError {
     fn into_http_response(self) -> Result<Response<Bytes>, Box<dyn std::error::Error>> {
         let status = match self {
             Self::NotFound => StatusCode::NOT_FOUND,
-            Self::InvalidUri(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Plugin(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::MissingDatasourceUid => StatusCode::BAD_REQUEST,
+            Self::MissingDatasourceSettings => StatusCode::BAD_REQUEST,
             Self::ConsoleNotConnected => StatusCode::BAD_REQUEST,
         };
         Ok(Response::builder().status(status).body(Bytes::from(
@@ -63,10 +58,17 @@ impl backend::ResourceService for ConsolePlugin {
         &self,
         request: backend::CallResourceRequest,
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
-        let datasource_uid = extract_datasource_uid(request.request.uri())?;
+        let datasource_settings = request
+            .plugin_context
+            .and_then(|pc| pc.datasource_instance_settings)
+            .ok_or(ResourceError::MissingDatasourceSettings)?;
+        let datasource_uid = DatasourceUid(datasource_settings.uid.clone());
 
         if self.state.get(&datasource_uid).is_none() {
-            return Err(ResourceError::ConsoleNotConnected);
+            self.connect(datasource_settings).await?;
+            if self.state.get(&datasource_uid).is_none() {
+                return Err(ResourceError::ConsoleNotConnected);
+            }
         }
 
         let initial_response = self
@@ -79,21 +81,4 @@ impl backend::ResourceService for ConsolePlugin {
             .map_err(ResourceError::Plugin)?;
         Ok((initial_response, Box::pin(stream::empty())))
     }
-}
-
-fn extract_datasource_uid(uri: &http::Uri) -> Result<DatasourceUid, ResourceError> {
-    if !uri.path().ends_with("/variablevalues/tasks") {
-        return Err(ResourceError::NotFound);
-    }
-    // Annoying to have to allocate here, but I don't want to reimplement
-    // query param parsing...
-    // We need to use this fake scheme/host because Grafana only gives us a relative
-    // URL relevant to our plugin, and the `Url` type can only be parsed from absolute URLs.
-    let dummy = Url::parse("http://localhost").unwrap();
-    let url = dummy.join(&uri.to_string())?;
-    let datasource_uid = url
-        .query_pairs()
-        .find(|x| x.0 == "datasourceUid")
-        .ok_or(ResourceError::MissingDatasourceUid)?;
-    Ok(DatasourceUid(datasource_uid.1.to_string()))
 }

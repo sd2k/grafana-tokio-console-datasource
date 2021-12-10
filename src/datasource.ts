@@ -1,5 +1,5 @@
 import { DataSourceInstanceSettings, MetricFindValue, StreamingFrameOptions } from '@grafana/data';
-import { DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { DataSourceOptions, ConsoleQuery, ConsolePathName, VariableQueryPathName, VariableQuery } from './types';
 
 export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOptions> {
@@ -18,8 +18,8 @@ export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOp
 
   async metricFindQuery(query: VariableQuery): Promise<MetricFindValue[]> {
     if (query.path === VariableQueryPathName.Tasks) {
-      const url = '/api/plugins/grafana-tokio-console-datasource/resources/variablevalues/tasks';
-      let tasks = await getBackendSrv().get(url, { datasourceUid: this.uid });
+      const url = '/variablevalues/tasks';
+      let tasks = await this.getResource(url);
       return tasks.map((taskId: number) => ({ text: taskId.toString() }));
     }
     return [];
