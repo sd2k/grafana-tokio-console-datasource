@@ -430,7 +430,6 @@ dependencies = [
 name = "grafana-tokio-console-datasource"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-stream",
  "bytes",
  "chrono",
