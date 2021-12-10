@@ -156,13 +156,6 @@ struct ConsoleInstance {
 }
 
 impl ConsoleInstance {
-    fn should_subscribe(&self, task: &Task) -> bool {
-        matches!(
-            self.task_detail_tasks.get(&task.id),
-            None | Some(TaskDetailsStream::Removed)
-        ) && (task.is_running() || task.is_awakened() || task.total_polls() > 10)
-    }
-
     fn should_unsubscribe(&self, task: &Task) -> bool {
         task.is_completed()
     }

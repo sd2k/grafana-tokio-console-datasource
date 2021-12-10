@@ -190,15 +190,6 @@ impl Task {
         self.self_wakes().percent_of(self.wakes())
     }
 
-    /// Returns whether this task has signaled via its waker to run again.
-    ///
-    /// Once the task has been polled, this is changed back to false.
-    pub(crate) fn is_awakened(&self) -> bool {
-        // Before the first poll, the task is waiting on the executor to run it
-        // for the first time.
-        self.total_polls() == 0 || self.last_wake() > self.stats.last_poll_started
-    }
-
     /// From the histogram, build a visual representation by trying to make as
     // many buckets as the width of the render area.
     pub(crate) fn make_chart_data(&self, width: u16) -> (Vec<u64>, HistogramMetadata) {
@@ -229,15 +220,11 @@ impl Task {
                 } else {
                     Vec::new()
                 };
-                let max_bucket = data.iter().max().copied().unwrap_or_default();
-                let min_bucket = data.iter().min().copied().unwrap_or_default();
                 (
                     data,
                     HistogramMetadata {
                         max_value: histogram.max(),
                         min_value: histogram.min(),
-                        max_bucket,
-                        min_bucket,
                     },
                 )
             })
@@ -500,8 +487,4 @@ pub(crate) struct HistogramMetadata {
     pub(crate) max_value: u64,
     /// The min recorded value in the histogram.
     pub(crate) min_value: u64,
-    /// The value of the bucket with the greatest quantity
-    pub(crate) max_bucket: u64,
-    /// The value of the bucket with the smallest quantity
-    pub(crate) min_bucket: u64,
 }
