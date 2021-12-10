@@ -22,7 +22,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "iteration": 1639128882432,
+  "iteration": 1639140452185,
   "links": [],
   "liveNow": true,
   "panels": [
@@ -438,7 +438,7 @@
                   {
                     "targetBlank": true,
                     "title": "Task Details",
-                    "url": "/d/WRwa_d27z/tokio-task-details?orgId=1&var-datasource=${datasource:queryparams}&var-task_id=${__value.numeric}"
+                    "url": "/d/WRwa_d27z/tokio-task-details?orgId=1&var-datasource=${datasource:queryparams}&var-task_id=${__value.raw}"
                   }
                 ]
               }
@@ -684,7 +684,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Polls"
+            "displayName": "Busy"
           }
         ]
       },
@@ -890,6 +890,24 @@
             ],
             "fields": {}
           }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "greater",
+                  "options": {
+                    "value": 1
+                  }
+                },
+                "fieldName": "Polls"
+              }
+            ],
+            "match": "any",
+            "type": "include"
+          }
         }
       ],
       "type": "table"
@@ -1049,11 +1067,7 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": false,
-          "text": "Tokio Console Datasource (meta)",
-          "value": "Tokio Console Datasource (meta)"
-        },
+        "current": {},
         "description": "Console datasource to use",
         "hide": 0,
         "includeAll": false,
@@ -1078,6 +1092,6 @@
   "timezone": "",
   "title": "Tokio / Task List",
   "uid": "Gk_Bndhnz",
-  "version": 5,
+  "version": 10,
   "weekStart": ""
 }

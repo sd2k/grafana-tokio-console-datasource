@@ -1,0 +1,917 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "iteration": 1639140786260,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Target$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Target",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#00d75f",
+                "value": null
+              },
+              {
+                "color": "#00d787",
+                "value": 1000
+              },
+              {
+                "color": "#00d7af",
+                "value": 1000000
+              },
+              {
+                "color": "#00d7d7",
+                "value": 1000000000
+              }
+            ]
+          },
+          "unit": "ns"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Total$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Total time",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#00d75f",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Polls$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Polls",
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "q5Is7rHnk"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Wakers",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Busy": true,
+              "Created At": true,
+              "Dropped At": true,
+              "Fields": true,
+              "ID": true,
+              "Idle": true,
+              "Last Poll Ended": true,
+              "Last Poll Started": true,
+              "Last wake": true,
+              "Location": true,
+              "Name": true,
+              "Poll times": true,
+              "Polls": true,
+              "Self wake percent": true,
+              "Self wakes": true,
+              "Since last wake": true,
+              "State": true,
+              "Target": true,
+              "Time": false,
+              "Total": true,
+              "Wakes": true
+            },
+            "indexByName": {},
+            "renameByName": {
+              "Waker clones": "Clones",
+              "Waker count": "Current",
+              "Waker drops": "Drops"
+            }
+          }
+        }
+      ],
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 11,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Self wake percent$/",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "q5Is7rHnk"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Self Wake %",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 3
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Location$/",
+          "values": false
+        },
+        "text": {},
+        "textMode": "value"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Location",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#00d75f",
+                "value": null
+              },
+              {
+                "color": "#00d787",
+                "value": 1000
+              },
+              {
+                "color": "#00d7af",
+                "value": 1000000
+              },
+              {
+                "color": "#00d7d7",
+                "value": 1000000000
+              }
+            ]
+          },
+          "unit": "ns"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Busy$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Busy",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#00d75f",
+                "value": null
+              },
+              {
+                "color": "#00d787",
+                "value": 1000
+              },
+              {
+                "color": "#00d7af",
+                "value": 1000000
+              },
+              {
+                "color": "#00d7d7",
+                "value": 1000000000
+              }
+            ]
+          },
+          "unit": "ns"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 5
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Idle$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Idle",
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 12,
+        "y": 5
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Wakes$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "q5Is7rHnk"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Wakes",
+      "transformations": [],
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ns"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 15,
+        "y": 5
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Since last wake$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "q5Is7rHnk"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Since last wake",
+      "transformations": [],
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 7
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Name$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "task",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Name",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-tokio-console-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "fillOpacity": 83,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 7,
+      "options": {
+        "barWidth": 1,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single"
+        },
+        "xTickLabelRotation": 45
+      },
+      "pluginVersion": "8.4.0-pre",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-tokio-console-datasource",
+            "uid": "${datasource}"
+          },
+          "path": "taskHistogram",
+          "rawTaskId": "$task_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Poll Times Histogram",
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "string",
+                "targetField": "x"
+              }
+            ],
+            "fields": {}
+          }
+        }
+      ],
+      "type": "barchart"
+    }
+  ],
+  "schemaVersion": 34,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Tokio Console Datasource (meta)",
+          "value": "Tokio Console Datasource (meta)"
+        },
+        "description": "Console instance to use",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Console instance",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "grafana-tokio-console-datasource",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "2",
+          "value": "2"
+        },
+        "datasource": {
+          "type": "grafana-tokio-console-datasource",
+          "uid": "${datasource}"
+        },
+        "definition": "tasks",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Task ID",
+        "multi": false,
+        "name": "task_id",
+        "options": [],
+        "query": {
+          "path": "tasks"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Tokio / Task Details",
+  "uid": "WRwa_d27z",
+  "version": 27,
+  "weekStart": ""
+}

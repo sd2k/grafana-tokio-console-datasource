@@ -1,4 +1,10 @@
-import { DataSourceInstanceSettings, MetricFindValue, StreamingFrameOptions } from '@grafana/data';
+import {
+  DataQueryRequest,
+  DataSourceInstanceSettings,
+  MetricFindValue,
+  StreamingFrameAction,
+  StreamingFrameOptions,
+} from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { DataSourceOptions, ConsoleQuery, ConsolePathName, VariableQueryPathName, VariableQuery } from './types';
 
@@ -14,7 +20,10 @@ export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOp
     return query;
   }
 
-  streamOptionsProvider = (): StreamingFrameOptions => ({ maxLength: 10000 });
+  streamOptionsProvider = (request: DataQueryRequest<ConsoleQuery>): StreamingFrameOptions => {
+    const shouldOverwrite = request.targets.some((target) => target.path === ConsolePathName.TaskHistogram);
+    return { maxLength: 10000, action: shouldOverwrite ? StreamingFrameAction.Replace : StreamingFrameAction.Append };
+  };
 
   async metricFindQuery(query: VariableQuery): Promise<MetricFindValue[]> {
     if (query.path === VariableQueryPathName.Tasks) {

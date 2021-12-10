@@ -152,18 +152,18 @@ impl Task {
     /// Returns `None` if the task has never been woken, or if it was last woken
     /// more recently than `now` (which *shouldn't* happen as long as `now` is the
     /// timestamp of the last stats update...)
-    // pub(crate) fn since_wake(&self, now: SystemTime) -> Option<Duration> {
-    //     now.duration_since(self.last_wake()?).ok()
-    // }
+    pub(crate) fn since_wake(&self, now: SystemTime) -> Option<Duration> {
+        now.duration_since(self.last_wake()?).ok()
+    }
 
     pub(crate) fn last_wake(&self) -> Option<SystemTime> {
         self.stats.last_wake
     }
 
     /// Returns the current number of wakers for this task.
-    // pub(crate) fn waker_count(&self) -> u64 {
-    //     self.waker_clones().saturating_sub(self.waker_drops())
-    // }
+    pub(crate) fn waker_count(&self) -> u64 {
+        self.waker_clones().saturating_sub(self.waker_drops())
+    }
 
     /// Returns the total number of times this task's waker has been cloned.
     pub(crate) fn waker_clones(&self) -> u64 {
@@ -234,8 +234,8 @@ impl Task {
                 (
                     data,
                     HistogramMetadata {
-                        // max_value: histogram.max(),
-                        // min_value: histogram.min(),
+                        max_value: histogram.max(),
+                        min_value: histogram.min(),
                         max_bucket,
                         min_bucket,
                     },
@@ -497,9 +497,9 @@ impl TaskState {
 #[derive(Debug, Default)]
 pub(crate) struct HistogramMetadata {
     /// The max recorded value in the histogram. This is the label for the bottom-right in the chart
-    // pub(crate) max_value: u64,
+    pub(crate) max_value: u64,
     /// The min recorded value in the histogram.
-    // pub(crate) min_value: u64,
+    pub(crate) min_value: u64,
     /// The value of the bucket with the greatest quantity
     pub(crate) max_bucket: u64,
     /// The value of the bucket with the smallest quantity

@@ -12,6 +12,7 @@ use console_api::{instrument::Update, tasks::TaskDetails};
 use dashmap::DashMap;
 use futures::{StreamExt, TryStreamExt};
 use grafana_plugin_sdk::{backend, data, prelude::*};
+use humantime::format_duration;
 use serde::Deserialize;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_stream::wrappers::ReceiverStream;
@@ -163,7 +164,7 @@ impl ConsoleInstance {
     }
 
     fn should_unsubscribe(&self, task: &Task) -> bool {
-        task.is_completed() || task.idle(SystemTime::now()) > Duration::from_secs(60)
+        task.is_completed()
     }
 }
 
@@ -255,7 +256,7 @@ impl DatasourceState {
                 }
             }
 
-            // Send changes to any channels.
+            // Send updates to the main 'tasks' stream.
             let tasks_frame = self.get_tasks_frame(Some(&updated_ids));
             if let Some(tx) = &self.tasks_frame_tx {
                 if let Err(e) = tx.send(tasks_frame).await {
@@ -263,6 +264,19 @@ impl DatasourceState {
                     let (tx, rx) = mpsc::channel(128);
                     self.tasks_frame_tx = Some(tx);
                     self.tasks_frame_rx = Some(rx);
+                }
+            }
+            // Send updates to any single-task streams.
+            for task_id in updated_ids {
+                if let Some(tx) = self.task_details_frame_txs.get(&task_id) {
+                    if tx.send(self.get_task_details_frame(task_id)).await.is_err() {
+                        info!(
+                            datasource_uid = %self.uid.0,
+                            task_id = %task_id.0,
+                            "Dropping task details transmitter for task",
+                        );
+                        self.task_details_frame_txs.remove(&task_id);
+                    }
                 }
             }
         }
@@ -281,7 +295,7 @@ impl DatasourceState {
             let task_id = TaskId(id.id);
             // Use a bool to track this so we don't hold a mutable reference to
             // `self.tasks` after we're done with it.
-            let mut should_send = false;
+            let mut should_send_histogram = false;
 
             if let Some(task) = self.tasks.get_mut(&task_id) {
                 // Update our own state.
@@ -289,21 +303,11 @@ impl DatasourceState {
                 task.histogram = hdrhistogram::serialization::Deserializer::new()
                     .deserialize(&mut Cursor::new(&data))
                     .ok();
-                should_send = true;
+                should_send_histogram = true;
             }
 
-            if should_send {
-                // Send updates to any downstream consumers.
-                if let Some(tx) = self.task_details_frame_txs.get(&task_id) {
-                    if tx.send(self.get_task_details_frame(task_id)).await.is_err() {
-                        info!(
-                            datasource_uid = %self.uid.0,
-                            task_id = %task_id.0,
-                            "Dropping task details transmitter for task",
-                        );
-                        self.task_details_frame_txs.remove(&task_id);
-                    }
-                }
+            // Send updates to any downstream consumers.
+            if should_send_histogram {
                 if let Some(tx) = self.task_details_histogram_frame_txs.get(&task_id) {
                     if tx
                         .send(self.get_task_histogram_frame(task_id))
@@ -349,9 +353,11 @@ impl DatasourceState {
         let mut idle = Vec::with_capacity(len);
         let mut total = Vec::with_capacity(len);
         let mut wakes = Vec::with_capacity(len);
+        let mut waker_counts = Vec::with_capacity(len);
         let mut waker_clones = Vec::with_capacity(len);
         let mut waker_drops = Vec::with_capacity(len);
         let mut last_wakes = Vec::with_capacity(len);
+        let mut since_wakes = Vec::with_capacity(len);
         let mut self_wakes = Vec::with_capacity(len);
         let mut self_wake_percents = Vec::with_capacity(len);
 
@@ -371,8 +377,11 @@ impl DatasourceState {
             locations.push(task.location.clone());
 
             polls.push(task.total_polls());
-            poll_times_histograms
-                .push(serde_json::to_string(&task.make_chart_data(100).0).unwrap());
+            poll_times_histograms.push(
+                task.histogram
+                    .is_some()
+                    .then(|| serde_json::to_string(&task.make_chart_data(100).0).unwrap()),
+            );
             created_at.push(to_datetime(task.stats.created_at));
             dropped_at.push(task.stats.dropped_at.map(to_datetime));
             busy.push(self.last_updated.map(|x| task.busy(x)).map(as_nanos));
@@ -381,9 +390,15 @@ impl DatasourceState {
             idle.push(self.last_updated.map(|x| task.idle(x)).map(as_nanos));
             total.push(self.last_updated.map(|x| task.total(x)).map(as_nanos));
             wakes.push(task.wakes());
+            waker_counts.push(task.waker_count());
             waker_clones.push(task.waker_clones());
             waker_drops.push(task.waker_drops());
             last_wakes.push(task.last_wake().map(to_datetime));
+            since_wakes.push(
+                self.last_updated
+                    .and_then(|x| task.since_wake(x))
+                    .map(as_nanos),
+            );
             self_wakes.push(task.self_wakes());
             self_wake_percents.push(task.self_wake_percent());
         }
@@ -396,7 +411,7 @@ impl DatasourceState {
             states.into_field("State"),
             locations.into_field("Location"),
             polls.into_field("Polls"),
-            poll_times_histograms.into_field("Poll times"),
+            poll_times_histograms.into_opt_field("Poll times"),
             created_at.into_field("Created At"),
             dropped_at.into_opt_field("Dropped At"),
             busy.into_opt_field("Busy"),
@@ -405,9 +420,11 @@ impl DatasourceState {
             idle.into_opt_field("Idle"),
             total.into_opt_field("Total"),
             wakes.into_field("Wakes"),
+            waker_counts.into_field("Waker count"),
             waker_clones.into_field("Waker clones"),
             waker_drops.into_field("Waker drops"),
             last_wakes.into_opt_field("Last wake"),
+            since_wakes.into_opt_field("Since last wake"),
             self_wakes.into_field("Self wakes"),
             self_wake_percents
                 .into_field("Self wake percent")
@@ -431,12 +448,19 @@ impl DatasourceState {
     /// a single task.
     fn get_task_histogram_frame(&self, id: TaskId) -> Result<data::Frame, Error> {
         let task = self.tasks.get(&id).ok_or(Error::TaskNotFound(id))?;
-        let (chart_data, chart_metadata) = task.make_chart_data(100);
-        let width = (chart_metadata.max_bucket - chart_metadata.min_bucket) / 100;
+        let (chart_data, chart_metadata) = task.make_chart_data(101);
+        let width = (chart_metadata.max_value - chart_metadata.min_value) as f64 / 101.0;
         let x: Vec<_> = chart_data
             .iter()
             .enumerate()
-            .map(|x| chart_metadata.min_bucket + (width * x.0 as u64))
+            .map(|x| {
+                (x.0 % 5 == 0)
+                    .then(|| {
+                        let nanos = chart_metadata.min_value as f64 + (width * x.0 as f64);
+                        format_duration(Duration::from_nanos(nanos as u64)).to_string()
+                    })
+                    .unwrap_or_else(String::new)
+            })
             .collect();
         let fields = [x.into_field("x"), chart_data.into_field("y")];
         Ok(fields.into_frame(id.to_string()))
@@ -513,9 +537,16 @@ impl ConsolePlugin {
                             // Next check if we need to subscribe to any new task details streams,
                             // or unsubscribe from any finished tasks.
                             debug!(n_tasks = s.tasks.len(), "checking for old or new tasks");
+
                             for (task_id, task) in &s.tasks {
+
+                                let stream_running = s.task_details_frame_txs.contains_key(task_id) ||
+                                    s.task_details_histogram_frame_txs.contains_key(task_id);
+                                let has_handle = instance.task_detail_tasks.contains_key(task_id);
+                                let should_definitely_subscribe = stream_running && !has_handle;
+
                                 // Remove any completed tasks.
-                                if instance.should_unsubscribe(task) {
+                                if !stream_running && instance.should_unsubscribe(task) {
                                     instance.task_detail_tasks.entry(*task_id).and_modify(|t| {
                                         if let TaskDetailsStream::Connected(handle) = t {
                                             debug!(task_id = %task_id, "Unsubscribing from completed task details");
@@ -523,12 +554,12 @@ impl ConsolePlugin {
                                         }
                                         *t = TaskDetailsStream::Removed;
                                     });
-                                } else if instance.should_subscribe(task) {
+                                } else if /* instance.should_subscribe(task) ||  */should_definitely_subscribe {
                                     match instance.connection.watch_details(task_id.0).await {
                                         Ok(stream) => {
                                             let tid = *task_id;
                                             let task_details_tx = task_details_tx.clone();
-                                            trace!(task_id = %tid, "Subscribing to task details");
+                                            debug!(task_id = %tid, ?should_definitely_subscribe, "Subscribing to task details");
                                             let handle = spawn_named("manage task details", async move {
                                                 let mut stream = stream.map_err(|e| (e, tid));
                                                 loop {
@@ -670,6 +701,10 @@ impl ConsolePlugin {
             .expect("state should be present for datasource")
             .task_details_histogram_frame_txs
             .insert(task_id, tx);
+        info!(
+            ?task_id,
+            "Inserted tx into task_details_histogram_frame_txs"
+        );
         Box::pin(ReceiverStream::new(rx).map(|res| {
             res.and_then(|frame| {
                 frame

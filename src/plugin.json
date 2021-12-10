@@ -39,8 +39,12 @@
     {
       "type": "dashboard",
       "name": "Tokio - Task List",
-      "path": "./dashboards/task-list.json",
-      "addToNav": true
+      "path": "./dashboards/task-list.json"
+    },
+    {
+      "type": "dashboard",
+      "name": "Tokio - Task Details",
+      "path": "./dashboards/task-details.json"
     }
   ]
 }
