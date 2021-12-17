@@ -1,6 +1,12 @@
 # Grafana Tokio Console Data Source
 
-This is a Grafana data source which can connect to the Tokio [`console`] subscriber. It provides similar functionality to the `console` [TUI frontend][console-frontend].
+This is a streaming Grafana data source which can connect to the Tokio [`console`] subscriber. It provides similar functionality to the `console` [TUI frontend][console-frontend] (albeit more limited at the moment!).
+
+## Screenshots
+
+![image](https://user-images.githubusercontent.com/5464991/146618978-16a094cf-f313-46c3-86ca-c364b7865130.png)
+
+![image](https://user-images.githubusercontent.com/5464991/146619018-bc1bbe41-7bf3-4a20-8732-a4855ad29bcc.png)
 
 ## Getting started
 
