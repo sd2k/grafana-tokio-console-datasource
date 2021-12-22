@@ -6,7 +6,7 @@
   "metrics": true,
   "backend": true,
   "streaming": true,
-  "executable": "./gpx_grafana-tokio-console-app",
+  "executable": "./gpx_grafana-tokio-console-datasource",
   "info": {
     "description": "Tokio Console datasource for Grafana",
     "author": {
@@ -24,11 +24,11 @@
     "links": [
       {
         "name": "GitHub",
-        "url": "https://github.com/grafana/grafana-tokio-console-app"
+        "url": "https://github.com/grafana/grafana-tokio-console-datasource"
       },
       {
         "name": "License",
-        "url": "https://github.com/grafana/grafana-tokio-console-app/blob/main/LICENSE"
+        "url": "https://github.com/grafana/grafana-tokio-console-datasource/blob/main/LICENSE"
       }
     ],
     "screenshots": [],
