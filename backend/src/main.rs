@@ -21,7 +21,10 @@ async fn plugin() -> ConsolePlugin {
             }
         })
         .unwrap_or_else(|| Targets::default().with_default(LevelFilter::WARN));
-    console_subscriber::build()
+    let console_layer = console_subscriber::ConsoleLayer::builder().spawn();
+
+    tracing_subscriber::registry()
+        .with(console_layer)
         .with(grafana_plugin_sdk::backend::layer().with_filter(fmt_filter))
         .init();
     ConsolePlugin::default()

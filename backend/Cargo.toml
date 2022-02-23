@@ -8,8 +8,8 @@ license = "MIT/Apache-2.0"
 async-stream = "0.3.2"
 bytes = "1.1.0"
 chrono = "0.4.19"
-console-api = { git = "https://github.com/grafana/console", rev = "1df61d977d2fb5ef8a6edb66f7723d9f616f3680" }
-console-subscriber = { git = "https://github.com/grafana/console", rev = "1df61d977d2fb5ef8a6edb66f7723d9f616f3680" }
+console-api = "0.1.2"
+console-subscriber = "0.1.3"
 dashmap = "4.0.2"
 futures = "0.3.17"
 futures-core = "0.3.17"
