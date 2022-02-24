@@ -1,11 +1,5 @@
-import {
-  DataQueryRequest,
-  DataSourceInstanceSettings,
-  MetricFindValue,
-  StreamingFrameAction,
-  StreamingFrameOptions,
-} from '@grafana/data';
-import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
+import { DataQueryRequest, DataSourceInstanceSettings, MetricFindValue } from '@grafana/data';
+import { DataSourceWithBackend, StreamingFrameAction, StreamingFrameOptions, getTemplateSrv } from '@grafana/runtime';
 import { DataSourceOptions, ConsoleQuery, ConsolePathName, VariableQueryPathName, VariableQuery } from './types';
 
 export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOptions> {
@@ -20,7 +14,7 @@ export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOp
     return query;
   }
 
-  streamOptionsProvider = (request: DataQueryRequest<ConsoleQuery>): StreamingFrameOptions => {
+  streamOptionsProvider = (request: DataQueryRequest<ConsoleQuery>): Partial<StreamingFrameOptions> => {
     const shouldOverwrite = request.targets.some((target) => target.path === ConsolePathName.TaskHistogram);
     return { maxLength: 10000, action: shouldOverwrite ? StreamingFrameAction.Replace : StreamingFrameAction.Append };
   };
