@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1.3
 
 ARG RUST_VERSION=1.58
-ARG GRAFANA_VERSION=8.4.1
 FROM node:lts-alpine AS yarn-builder
 ENV YARN_CACHE_FOLDER=/opt/yarncache
 
@@ -33,7 +32,7 @@ RUN \
   --mount=type=cache,id=tokio-console-datasource-cargo-registry-cache,target=/usr/local/cargo/registry \
   RUSTFLAGS="--cfg tokio_unstable" cargo build --release
 
-FROM grafana/grafana:${GRAFANA_VERSION}
+FROM sd2k/grafana:tokio-console-dev
 
 # Used to get the target plugin binary name.
 ARG TARGETPLATFORM
