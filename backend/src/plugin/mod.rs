@@ -362,7 +362,7 @@ impl DatasourceState {
             fields.push(
                 task.fields
                     .iter()
-                    .map(|f| format!("{}={}", f.name.to_string(), f.value))
+                    .map(|f| format!("{}={}", f.name, f.value))
                     .collect::<Vec<_>>()
                     .join(" "),
             );
