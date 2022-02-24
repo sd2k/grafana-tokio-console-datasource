@@ -52,18 +52,18 @@ This will run the `watch` task using the [`cargo-xtask`] pattern, which rebuilds
 
 ### Running Grafana
 
-You'll need to clone Grafana and run a specific branch to get some nice extra things working (namely the poll time histograms inside the main task list table):
+You'll need to clone a fork Grafana and run a specific branch to get some nice extra things working (namely the poll time histograms inside the main task list table):
 
 1. Clone Grafana
 
    ```bash
-   git clone git@github.com/grafana/grafana
+   git clone git@github.com/sd2k/grafana
    ```
 
 2. Check out the custom branch
 
    ```bash
-   git checkout table-charts-with-convert-to-json
+   git checkout table-charts
    ```
 
 3. Build the frontend
