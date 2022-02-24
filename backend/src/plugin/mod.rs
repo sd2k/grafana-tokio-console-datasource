@@ -372,8 +372,9 @@ impl DatasourceState {
             polls.push(task.total_polls());
             poll_times_histograms.push(
                 task.histogram
-                    .is_some()
-                    .then(|| serde_json::to_string(&task.make_chart_data(100).0).unwrap()),
+                    .as_ref()
+                    .map(|_| serde_json::to_string(&task.make_chart_data(100).0).unwrap())
+                    .unwrap_or_else(|| "[]".to_string()),
             );
             created_at.push(to_datetime(task.stats.created_at));
             dropped_at.push(task.stats.dropped_at.map(to_datetime));
@@ -404,7 +405,7 @@ impl DatasourceState {
             states.into_field("State"),
             locations.into_field("Location"),
             polls.into_field("Polls"),
-            poll_times_histograms.into_opt_field("Poll times"),
+            poll_times_histograms.into_field("Poll times"),
             created_at.into_field("Created At"),
             dropped_at.into_opt_field("Dropped At"),
             busy.into_opt_field("Busy"),
