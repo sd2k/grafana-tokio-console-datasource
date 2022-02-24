@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'tokio-console'
+    orgId: 1
+    folder: 'Tokio Console'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /home/grafana/plugins/grafana-tokio-console-datasource/dist/dashboards
+

@@ -33,8 +33,6 @@ RUN \
   --mount=type=cache,id=tokio-console-datasource-cargo-registry-cache,target=/usr/local/cargo/registry \
   RUSTFLAGS="--cfg tokio_unstable" cargo build --release
 
-RUN pwd && ls -l && sleep 5
-
 FROM grafana/grafana:${GRAFANA_VERSION}
 
 # Used to get the target plugin binary name.
