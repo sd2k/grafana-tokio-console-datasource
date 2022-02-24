@@ -24,7 +24,7 @@ fn go_target() -> Result<String, Box<dyn Error>> {
             .arg("version")
             .output()
             .map_err(|_| "go must be installed to fetch target host and arch; alternatively set GOARCH env var to e.g. darwin_arm64 or linux_amd64")?;
-        Ok(String::from_utf8(go_output.stdout)?.trim().split(' ').nth(3).map(|s| s.replace("/", "_")).ok_or("unexpected output from `go version`")?)
+        Ok(String::from_utf8(go_output.stdout)?.trim().split(' ').nth(3).map(|s| s.replace('/', "_")).ok_or("unexpected output from `go version`")?)
     })
 }
 
