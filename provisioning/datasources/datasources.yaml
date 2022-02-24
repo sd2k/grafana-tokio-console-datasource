@@ -1,0 +1,13 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: Tokio Console - Default
+    orgId: 1
+
+datasources:
+  - name: Tokio Console - Default
+    type: grafana-tokio-console-datasource
+    uid: tokiodefault
+    access: proxy
+    url: http://127.0.0.1:6669
+    
