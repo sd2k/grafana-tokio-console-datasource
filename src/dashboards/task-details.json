@@ -266,7 +266,7 @@
         {
           "datasource": {
             "type": "grafana-tokio-console-datasource",
-            "uid": "q5Is7rHnk"
+            "uid": "${datasource}"
           },
           "path": "task",
           "rawTaskId": "$task_id",
@@ -367,7 +367,7 @@
         {
           "datasource": {
             "type": "grafana-tokio-console-datasource",
-            "uid": "q5Is7rHnk"
+            "uid": "${datasource}"
           },
           "path": "task",
           "rawTaskId": "$task_id",
@@ -631,7 +631,7 @@
         {
           "datasource": {
             "type": "grafana-tokio-console-datasource",
-            "uid": "q5Is7rHnk"
+            "uid": "${datasource}"
           },
           "path": "task",
           "rawTaskId": "$task_id",
@@ -689,7 +689,7 @@
         {
           "datasource": {
             "type": "grafana-tokio-console-datasource",
-            "uid": "q5Is7rHnk"
+            "uid": "${datasource}"
           },
           "path": "task",
           "rawTaskId": "$task_id",
