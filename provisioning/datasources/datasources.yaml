@@ -5,7 +5,13 @@ deleteDatasources:
     orgId: 1
 
 datasources:
-  - name: Tokio Console - Default
+  - name: Tokio Console - Grafana plugin
+    type: grafana-tokio-console-datasource
+    uid: tokioconsolebackendplugin
+    access: proxy
+    url: http://127.0.0.1:6668
+    isDefault: true
+  - name: Tokio Console - localhost:6669
     type: grafana-tokio-console-datasource
     uid: tokiodefault
     access: proxy

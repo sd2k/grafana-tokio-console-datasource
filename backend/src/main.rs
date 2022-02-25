@@ -1,3 +1,5 @@
+use std::net::SocketAddrV4;
+
 use tracing_subscriber::{
     filter::{LevelFilter, Targets},
     prelude::*,
@@ -21,7 +23,9 @@ async fn plugin() -> ConsolePlugin {
             }
         })
         .unwrap_or_else(|| Targets::default().with_default(LevelFilter::WARN));
-    let console_layer = console_subscriber::ConsoleLayer::builder().spawn();
+    let console_layer = console_subscriber::ConsoleLayer::builder()
+        .server_addr("127.0.0.1:6668".parse::<SocketAddrV4>().unwrap())
+        .spawn();
 
     tracing_subscriber::registry()
         .with(console_layer)
