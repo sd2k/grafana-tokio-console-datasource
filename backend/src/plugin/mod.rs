@@ -453,7 +453,7 @@ impl DatasourceState {
                         let nanos = chart_metadata.min_value as f64 + (width * x.0 as f64);
                         format_duration(Duration::from_nanos(nanos as u64)).to_string()
                     })
-                    .unwrap_or_else(String::new)
+                    .unwrap_or_default()
             })
             .collect();
         let fields = [x.into_field("x"), chart_data.into_field("y")];
@@ -644,7 +644,7 @@ impl ConsolePlugin {
     ) -> Result<<Self as backend::StreamService>::Stream, <Self as backend::StreamService>::Error>
     {
         let state = self.state.get_mut(datasource_uid);
-        Ok(state
+        state
             .and_then(|mut x| x.tasks_frame_rx.take())
             .ok_or(Error::DatasourceInstanceNotFound)
             .map(|x| {
@@ -656,7 +656,7 @@ impl ConsolePlugin {
                             .and_then(|f| Ok(backend::StreamPacket::from_frame(f)?))
                     })
                 })) as <Self as backend::StreamService>::Stream
-            })?)
+            })
     }
 
     async fn stream_task_details(
