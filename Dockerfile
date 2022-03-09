@@ -32,7 +32,7 @@ RUN \
   --mount=type=cache,id=tokio-console-datasource-cargo-registry-cache,target=/usr/local/cargo/registry \
   RUSTFLAGS="--cfg tokio_unstable" cargo build --release
 
-FROM sd2k/grafana:tokio-console-dev
+FROM sd2k/grafana:table-charts
 
 # Used to get the target plugin binary name.
 ARG TARGETPLATFORM
