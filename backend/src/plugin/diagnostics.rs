@@ -27,15 +27,15 @@ impl backend::DiagnosticsService for ConsolePlugin {
             })?;
         Ok(Connection::try_connect(url)
             .await
-            .map(|_| backend::CheckHealthResponse {
-                status: HealthStatus::Ok,
-                message: "Connection successful".to_string(),
-                json_details: Value::Null,
+            .map(|_| {
+                backend::CheckHealthResponse::new(
+                    HealthStatus::Ok,
+                    "Connection successful".to_string(),
+                    Value::Null,
+                )
             })
-            .unwrap_or_else(|e| backend::CheckHealthResponse {
-                status: HealthStatus::Error,
-                message: e.to_string(),
-                json_details: Value::Null,
+            .unwrap_or_else(|e| {
+                backend::CheckHealthResponse::new(HealthStatus::Error, e.to_string(), Value::Null)
             }))
     }
 

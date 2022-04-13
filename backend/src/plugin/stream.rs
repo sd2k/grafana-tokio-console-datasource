@@ -114,12 +114,9 @@ impl backend::StreamService for ConsolePlugin {
             }
         };
 
-        initial_data
-            .and_then(frame_to_initial_data)
-            .map(|x| backend::SubscribeStreamResponse {
-                status: backend::SubscribeStreamStatus::Ok,
-                initial_data: Some(x),
-            })
+        initial_data.and_then(frame_to_initial_data).map(|x| {
+            backend::SubscribeStreamResponse::new(backend::SubscribeStreamStatus::Ok, Some(x))
+        })
     }
 
     type Error = Error;

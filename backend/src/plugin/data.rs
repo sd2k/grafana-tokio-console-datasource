@@ -1,3 +1,4 @@
+use futures::stream::FuturesOrdered;
 use serde::Deserialize;
 
 use grafana_plugin_sdk::{backend, data};
@@ -25,31 +26,38 @@ struct ConsoleQueryDataRequest {
 #[backend::async_trait]
 impl backend::DataService for ConsolePlugin {
     type QueryError = QueryError;
-    type Iter = backend::BoxDataResponseIter<Self::QueryError>;
-    async fn query_data(&self, mut request: backend::QueryDataRequest) -> Self::Iter {
-        Box::new(request.queries.into_iter().map(move |x| {
-            let uid = request
-                .plugin_context
-                .datasource_instance_settings
-                .take()
-                .map(|x| x.uid)
-                .ok_or_else(|| QueryError {
-                    ref_id: x.ref_id.clone(),
-                })?;
+    type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+    async fn query_data(&self, mut request: backend::QueryDataRequest) -> Self::Stream {
+        Box::pin(
+            request
+                .queries
+                .into_iter()
+                .map(move |x| {
+                    let uid = request
+                        .plugin_context
+                        .datasource_instance_settings
+                        .take()
+                        .map(|x| x.uid);
+                    async {
+                        let uid = uid.ok_or_else(|| QueryError {
+                            ref_id: x.ref_id.clone(),
+                        })?;
+                        let mut frame = data::Frame::new("");
 
-            let mut frame = data::Frame::new("");
+                        if let Ok(path) = serde_json::from_value(x.json)
+                            .map(|req: ConsoleQueryDataRequest| req.path)
+                        {
+                            frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
+                        }
 
-            if let Ok(path) =
-                serde_json::from_value(x.json).map(|req: ConsoleQueryDataRequest| req.path)
-            {
-                frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
-            }
-
-            Ok(backend::DataResponse::new(
-                x.ref_id,
-                vec![frame.check().unwrap()],
-            ))
-        }))
+                        Ok(backend::DataResponse::new(
+                            x.ref_id,
+                            vec![frame.check().unwrap()],
+                        ))
+                    }
+                })
+                .collect::<FuturesOrdered<_>>(),
+        )
     }
 }
 

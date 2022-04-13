@@ -396,6 +396,9 @@ impl DatasourceState {
             self_wakes.push(task.self_wakes());
             self_wake_percents.push(task.self_wake_percent());
         }
+        let mut wake_percent_config = data::FieldConfig::default();
+        wake_percent_config.description =
+            Some("The percentage of this task's total wakeups that are self wakes.".to_string());
         let frame = data::Frame::new("tasks").with_fields([
             timestamps.into_field("Time"),
             ids.into_field("ID"),
@@ -422,13 +425,7 @@ impl DatasourceState {
             self_wakes.into_field("Self wakes"),
             self_wake_percents
                 .into_field("Self wake percent")
-                .with_config(data::FieldConfig {
-                    description: Some(
-                        "The percentage of this task's total wakeups that are self wakes."
-                            .to_string(),
-                    ),
-                    ..Default::default()
-                }),
+                .with_config(wake_percent_config),
         ]);
         Ok(frame)
     }
