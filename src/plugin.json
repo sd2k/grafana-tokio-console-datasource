@@ -6,7 +6,7 @@
   "metrics": true,
   "backend": true,
   "streaming": true,
-  "executable": "./grafana-tokio-console-datasource",
+  "executable": "grafana-tokio-console-datasource",
   "dependencies": {
     "grafanaDependency": "^8.4.0"
   },
