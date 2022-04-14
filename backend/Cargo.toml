@@ -32,7 +32,3 @@ tonic = "0.7.1"
 tonic-health = "0.6.0"
 tracing = "0.1.29"
 tracing-subscriber = "0.3.2"
-
-[[bin]]
-name = "gpx_grafana-tokio-console"
-path = "src/main.rs"

@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: aarch64-apple-darwin
-          path: target/aarch64-apple-darwin/release/grafana-tokio-console-datasource
+          path: target/aarch64-apple-darwin/release/gpx_grafana-tokio-console
 
   release:
     name: release

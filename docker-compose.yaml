@@ -25,7 +25,7 @@ services:
       RUST_LOG: grafana_plugin_sdk=debug,info
     volumes:
       - "./grafana/provisioning:/etc/grafana/provisioning"
-      - ".:/var/lib/grafana/plugins/grafana-tokio-console-datasource"
+      - ".:/var/lib/grafana/plugins/bsull-tokio-console-datasource"
 
   frontend:
     image: node:14
@@ -53,4 +53,4 @@ services:
       - -x
       - build
       - -s
-      - rm -rf /usr/src/dist/gpx_tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/gpx_tokio-console-datasource_linux_arm64 && nc -z grafana 10001
+      - rm -rf /usr/src/dist/grafana-tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/grafana-tokio-console-datasource_linux_arm64 && nc -z grafana 10001
