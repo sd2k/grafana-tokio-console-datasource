@@ -24,7 +24,7 @@ services:
       JAEGER_AGENT_HOST: "jaeger"
       RUST_LOG: grafana_plugin_sdk=debug,info
     volumes:
-      - "./grafana/provisioning:/etc/grafana/provisioning"
+      - "./provisioning:/etc/grafana/provisioning"
       - ".:/var/lib/grafana/plugins/bsull-console-datasource"
 
   frontend:
@@ -41,6 +41,8 @@ services:
     build: 
       context: backend
       dockerfile: Dockerfile
+    environment:
+      RUSTFLAGS: --cfg tokio_unstable
     volumes:
       - "/usr/local/cargo"
       - "/usr/src/backend/target"
