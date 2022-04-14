@@ -184,11 +184,13 @@ jobs:
         run: |
           sudo apt-get install jq
           export GRAFANA_PLUGIN_ID=$(cat dist/plugin.json | jq -r .id)
+          export GRAFANA_PLUGIN_EXECUTABLE=$(cat dist/plugin.json | jq -r .executable)
           export GRAFANA_PLUGIN_VERSION=$(cat dist/plugin.json | jq -r .info.version)
           export GRAFANA_PLUGIN_TYPE=$(cat dist/plugin.json | jq -r .type)
           export GRAFANA_PLUGIN_ARTIFACT=${GRAFANA_PLUGIN_ID}-${GRAFANA_PLUGIN_VERSION}.zip
           export GRAFANA_PLUGIN_ARTIFACT_CHECKSUM=${GRAFANA_PLUGIN_ARTIFACT}.md5
           echo "::set-output name=plugin-id::${GRAFANA_PLUGIN_ID}"
+          echo "::set-output name=plugin-executable::${GRAFANA_PLUGIN_EXECUTABLE}"
           echo "::set-output name=plugin-version::${GRAFANA_PLUGIN_VERSION}"
           echo "::set-output name=plugin-type::${GRAFANA_PLUGIN_TYPE}"
           echo "::set-output name=archive::${GRAFANA_PLUGIN_ARTIFACT}"
@@ -197,19 +199,19 @@ jobs:
 
       - name: Copy artifacts to dist
         run: |
-          cp artifacts/aarch64-apple-darwin/${{ steps.metadata.outputs.plugin-id }} dist/${{ steps.metadata.outputs.plugin-id }}_darwin_arm64
-          cp artifacts/x86_64-apple-darwin/${{ steps.metadata.outputs.plugin-id }} dist/${{ steps.metadata.outputs.plugin-id }}_darwin_amd64
+          cp artifacts/aarch64-apple-darwin/${{ steps.metadata.outputs.plugin-executable }} dist/${{ steps.metadata.outputs.plugin-executable }}_darwin_arm64
+          cp artifacts/x86_64-apple-darwin/${{ steps.metadata.outputs.plugin-executable }} dist/${{ steps.metadata.outputs.plugin-executable }}_darwin_amd64
 
-          cp artifacts/aarch64-unknown-linux-musl/${{ steps.metadata.outputs.plugin-id }} dist/${{ steps.metadata.outputs.plugin-id }}_linux_arm64
-          cp artifacts/armv7-unknown-linux-musleabihf/${{ steps.metadata.outputs.plugin-id }} dist/${{ steps.metadata.outputs.plugin-id }}_linux_arm
-          cp artifacts/x86_64-unknown-linux-musl/${{ steps.metadata.outputs.plugin-id }} dist/${{ steps.metadata.outputs.plugin-id }}_linux_amd64
+          cp artifacts/aarch64-unknown-linux-musl/${{ steps.metadata.outputs.plugin-executable }} dist/${{ steps.metadata.outputs.plugin-executable }}_linux_arm64
+          cp artifacts/armv7-unknown-linux-musleabihf/${{ steps.metadata.outputs.plugin-executable }} dist/${{ steps.metadata.outputs.plugin-executable }}_linux_arm
+          cp artifacts/x86_64-unknown-linux-musl/${{ steps.metadata.outputs.plugin-executable }} dist/${{ steps.metadata.outputs.plugin-executable }}_linux_amd64
 
-          cp artifacts/x86_64-pc-windows-gnu/${{ steps.metadata.outputs.plugin-id }}.exe dist/${{ steps.metadata.outputs.plugin-id }}_windows_amd64.exe
+          cp artifacts/x86_64-pc-windows-gnu/${{ steps.metadata.outputs.plugin-executable }}.exe dist/${{ steps.metadata.outputs.plugin-executable }}_windows_amd64.exe
 
-      - name: Sign plugin
-        run: yarn sign
-        env:
-          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+      # - name: Sign plugin
+      #   run: yarn sign
+      #   env:
+      #     GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
 
       - name: Read changelog
         id: changelog
