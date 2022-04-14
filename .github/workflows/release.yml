@@ -45,7 +45,7 @@ jobs:
         with:
           use-cross: true
           command: install
-          args: cross
+          args: cross --git https://github.com/rust-embedded/cross
       - run: cross build --target aarch64-unknown-linux-musl --release
       - name: Upload 
         uses: actions/upload-artifact@v3
