@@ -25,7 +25,7 @@ services:
       RUST_LOG: grafana_plugin_sdk=debug,info
     volumes:
       - "./grafana/provisioning:/etc/grafana/provisioning"
-      - ".:/var/lib/grafana/plugins/bsull-tokio-console-datasource"
+      - ".:/var/lib/grafana/plugins/bsull-console-datasource"
 
   frontend:
     image: node:14

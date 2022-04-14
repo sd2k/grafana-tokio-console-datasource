@@ -2,11 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "Tokio Console",
-  "id": "bsull-tokio-console-datasource",
+  "id": "bsull-console-datasource",
   "metrics": true,
   "backend": true,
   "streaming": true,
   "executable": "./grafana-tokio-console-datasource",
+  "dependencies": {
+    "grafanaDependency": "^8.4.0"
+  },
   "info": {
     "description": "Tokio Console datasource for Grafana",
     "author": {
@@ -18,8 +21,8 @@
       "console"
     ],
     "logos": {
-      "small": "./img/logo.svg",
-      "large": "./img/logo.svg"
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
     },
     "links": [
       {

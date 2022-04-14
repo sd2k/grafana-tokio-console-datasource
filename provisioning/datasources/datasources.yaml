@@ -6,13 +6,13 @@ deleteDatasources:
 
 datasources:
   - name: Tokio Console - Grafana plugin
-    type: bsull-tokio-console-datasource
+    type: bsull-console-datasource
     uid: tokioconsolebackendplugin
     access: proxy
     url: http://127.0.0.1:6668
     isDefault: true
   - name: Tokio Console - localhost:6669
-    type: bsull-tokio-console-datasource
+    type: bsull-console-datasource
     uid: tokiodefault
     access: proxy
     url: http://127.0.0.1:6669

@@ -91,7 +91,6 @@ You'll need to clone a fork Grafana and run a specific branch to get some nice e
    plugins = /Users/ben/repos/grafana-plugins  # or wherever you cloned this repo
    
    [plugins]
-   allow_loading_unsigned_plugins = grafana-tokio-console-datasource
    plugin_admin_enabled = true
    ```
 
