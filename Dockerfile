@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.3
 
-ARG RUST_VERSION=1.58
+ARG RUST_VERSION=1.60
 FROM node:lts-alpine AS yarn-builder
 ENV YARN_CACHE_FOLDER=/opt/yarncache
 
