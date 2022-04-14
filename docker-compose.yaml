@@ -56,4 +56,4 @@ services:
       - -x
       - build
       - -s
-      - rm -rf /usr/src/dist/grafana-tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/grafana-tokio-console-datasource_linux_arm64 && nc -z grafana 10001
+      - rm -rf /usr/src/dist/grafana-tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/grafana-tokio-console-datasource_linux_amd64 && nc -z grafana 10001
