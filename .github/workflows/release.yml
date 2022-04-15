@@ -243,8 +243,8 @@ jobs:
           path: ${{ steps.metadata.outputs.archive }}
           if-no-files-found: error
 
-      - name: Lint plugin
-        uses: grafana/plugin-validator@06f4f8c5a0b9fe6d5641ce6cbd6d439f4082378b
+      # - name: Lint plugin
+      #   uses: grafana/plugin-validator@06f4f8c5a0b9fe6d5641ce6cbd6d439f4082378b
 
       # - name: Create release
       #   id: create_release
