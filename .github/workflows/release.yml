@@ -30,6 +30,7 @@ jobs:
         with:
           name: x86_64-unknown-linux-musl 
           path: target/x86_64-unknown-linux-musl/release/grafana-tokio-console-datasource
+          if-no-files-found: error
 
   linux_arm64:
     name: aarch64-unknown-linux-musl
@@ -52,6 +53,7 @@ jobs:
         with:
           name: aarch64-unknown-linux-musl 
           path: target/aarch64-unknown-linux-musl/release/grafana-tokio-console-datasource
+          if-no-files-found: error
 
   linux_arm:
     name: armv7-unknown-linux-musleabihf 
@@ -74,6 +76,7 @@ jobs:
         with:
           name: armv7-unknown-linux-musleabihf 
           path: target/armv7-unknown-linux-musleabihf/release/grafana-tokio-console-datasource
+          if-no-files-found: error
 
   windows_amd64:
     name: x86_64-pc-windows-gnu 
@@ -95,6 +98,7 @@ jobs:
         with:
           name: x86_64-pc-windows-gnu
           path: target/x86_64-pc-windows-gnu/release/grafana-tokio-console-datasource.exe
+          if-no-files-found: error
 
   darwin_amd64:
     name: x86_64-apple-darwin
@@ -115,6 +119,7 @@ jobs:
         with:
           name: x86_64-apple-darwin
           path: target/x86_64-apple-darwin/release/grafana-tokio-console-datasource
+          if-no-files-found: error
 
   darwin_arm64:
     name: aarch64-apple-darwin
@@ -134,7 +139,8 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: aarch64-apple-darwin
-          path: target/aarch64-apple-darwin/release/gpx_grafana-tokio-console
+          path: target/aarch64-apple-darwin/release/grafana-tokio-console-datasource
+          if-no-files-found: error
 
   release:
     name: release
