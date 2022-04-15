@@ -236,6 +236,13 @@ jobs:
           md5sum ${{ steps.metadata.outputs.archive }} > ${{ steps.metadata.outputs.archive-checksum }}
           echo "::set-output name=checksum::$(cat ./${{ steps.metadata.outputs.archive-checksum }} | cut -d' ' -f1)"
 
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: plugin.zip
+          path: ${{ steps.metadata.outputs.archive }}
+          if-no-files-found: error
+
       - name: Lint plugin
         uses: grafana/plugin-validator@06f4f8c5a0b9fe6d5641ce6cbd6d439f4082378b
 
