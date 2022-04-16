@@ -16,4 +16,8 @@ datasources:
     uid: tokiodefault
     access: proxy
     url: http://127.0.0.1:6669
-    
+  - name: Tokio Console - host.docker.internal:6669
+    type: bsull-console-datasource
+    uid: tokiodefaultmacos
+    access: proxy
+    url: http://host.docker.internal:6669
