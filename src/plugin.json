@@ -34,7 +34,16 @@
         "url": "https://github.com/grafana/grafana-tokio-console-datasource/blob/main/LICENSE"
       }
     ],
-    "screenshots": [],
+    "screenshots": [
+      {
+        "name": "Task List",
+        "path": "img/task-list.png"
+      },
+      {
+        "name": "Task Details",
+        "path": "img/task-details.png"
+      }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
