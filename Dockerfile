@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.3
 
-ARG RUST_VERSION=1.58
+ARG RUST_VERSION=1.60
 FROM node:lts-alpine AS yarn-builder
 ENV YARN_CACHE_FOLDER=/opt/yarncache
 
@@ -32,7 +32,7 @@ RUN \
   --mount=type=cache,id=tokio-console-datasource-cargo-registry-cache,target=/usr/local/cargo/registry \
   RUSTFLAGS="--cfg tokio_unstable" cargo build --release
 
-FROM sd2k/grafana:tokio-console-dev
+FROM sd2k/grafana:table-charts
 
 # Used to get the target plugin binary name.
 ARG TARGETPLATFORM
@@ -42,10 +42,10 @@ ARG TARGETPLATFORM
 ENV CUSTOM_PLUGIN_DIR /home/grafana/plugins
 RUN mkdir -p ${CUSTOM_PLUGIN_DIR}
 COPY ./provisioning /etc/grafana/provisioning
-COPY --chown=grafana --from=yarn-builder /app/tokio-console-datasource/dist ${CUSTOM_PLUGIN_DIR}/grafana-tokio-console-datasource/dist
-COPY --chown=grafana --from=rust-builder /usr/src/backend/target/release/gpx_grafana-tokio-console ${CUSTOM_PLUGIN_DIR}/grafana-tokio-console-datasource/dist/gpx_grafana-tokio-console-datasource
+COPY --chown=grafana --from=yarn-builder /app/tokio-console-datasource/dist ${CUSTOM_PLUGIN_DIR}/bsull-console-datasource/dist
+COPY --chown=grafana --from=rust-builder /usr/src/backend/target/release/grafana-tokio-console-datasource ${CUSTOM_PLUGIN_DIR}/bsull-console-datasource/dist/grafana-tokio-console-datasource
 RUN GOARCH=$(echo ${TARGETPLATFORM} | sed 's|/|_|') \
-  && mv ${CUSTOM_PLUGIN_DIR}/grafana-tokio-console-datasource/dist/gpx_grafana-tokio-console-datasource ${CUSTOM_PLUGIN_DIR}/grafana-tokio-console-datasource/dist/gpx_grafana-tokio-console-datasource_${GOARCH}
+  && mv ${CUSTOM_PLUGIN_DIR}/bsull-console-datasource/dist/grafana-tokio-console-datasource ${CUSTOM_PLUGIN_DIR}/bsull-console-datasource/dist/grafana-tokio-console-datasource_${GOARCH}
 
 ENV GF_DEFAULT_APP_MODE development
 ENV GF_AUTH_ANONYMOUS_ENABLED true

@@ -28,7 +28,7 @@
   "panels": [
     {
       "datasource": {
-        "type": "grafana-tokio-console-datasource",
+        "type": "bsull-console-datasource",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -79,7 +79,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-tokio-console-datasource",
+            "type": "bsull-console-datasource",
             "uid": "${datasource}"
           },
           "path": "tasks",
@@ -103,7 +103,7 @@
     },
     {
       "datasource": {
-        "type": "grafana-tokio-console-datasource",
+        "type": "bsull-console-datasource",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -153,7 +153,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-tokio-console-datasource",
+            "type": "bsull-console-datasource",
             "uid": "${datasource}"
           },
           "path": "tasks",
@@ -202,7 +202,7 @@
     },
     {
       "datasource": {
-        "type": "grafana-tokio-console-datasource",
+        "type": "bsull-console-datasource",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -252,7 +252,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-tokio-console-datasource",
+            "type": "bsull-console-datasource",
             "uid": "${datasource}"
           },
           "path": "tasks",
@@ -301,7 +301,7 @@
     },
     {
       "datasource": {
-        "type": "grafana-tokio-console-datasource",
+        "type": "bsull-console-datasource",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -348,7 +348,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-tokio-console-datasource",
+            "type": "bsull-console-datasource",
             "uid": "${datasource}"
           },
           "path": "tasks",
@@ -397,7 +397,7 @@
     },
     {
       "datasource": {
-        "type": "grafana-tokio-console-datasource",
+        "type": "bsull-console-datasource",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -692,7 +692,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-tokio-console-datasource",
+            "type": "bsull-console-datasource",
             "uid": "${datasource}"
           },
           "path": "tasks",
@@ -914,7 +914,7 @@
     },
     {
       "datasource": {
-        "type": "grafana-tokio-console-datasource",
+        "type": "bsull-console-datasource",
         "uid": "${datasource}"
       },
       "fieldConfig": {
@@ -994,7 +994,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-tokio-console-datasource",
+            "type": "bsull-console-datasource",
             "uid": "${datasource}"
           },
           "path": "tasks",
@@ -1075,7 +1075,7 @@
         "multi": false,
         "name": "datasource",
         "options": [],
-        "query": "grafana-tokio-console-datasource",
+        "query": "bsull-console-datasource",
         "queryValue": "",
         "refresh": 1,
         "regex": "",

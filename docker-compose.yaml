@@ -19,13 +19,14 @@ services:
       GF_LOG_LEVEL: debug
       GF_LOG_FILTERS: plugins:debug
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "true"
+      GF_PATHS_PLUGINS: /home/grafana/plugins
       GF_PLUGINS_ENABLE_ALPHA: "true"
       GF_SERVER_ROOT_URL: http://admin:admin@grafana:3000
       JAEGER_AGENT_HOST: "jaeger"
       RUST_LOG: grafana_plugin_sdk=debug,info
     volumes:
-      - "./grafana/provisioning:/etc/grafana/provisioning"
-      - ".:/var/lib/grafana/plugins/grafana-tokio-console-datasource"
+      - "./provisioning:/etc/grafana/provisioning"
+      - ".:/home/grafana/plugins/bsull-console-datasource"
 
   frontend:
     image: node:14
@@ -41,6 +42,8 @@ services:
     build: 
       context: backend
       dockerfile: Dockerfile
+    environment:
+      RUSTFLAGS: --cfg tokio_unstable
     volumes:
       - "/usr/local/cargo"
       - "/usr/src/backend/target"
@@ -53,4 +56,4 @@ services:
       - -x
       - build
       - -s
-      - rm -rf /usr/src/dist/gpx_tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/gpx_tokio-console-datasource_linux_arm64 && nc -z grafana 10001
+      - rm -rf /usr/src/dist/grafana-tokio-console-datasource_linux_amd64 && cp target/debug/grafana-tokio-console-datasource /usr/src/dist/grafana-tokio-console-datasource_linux_amd64 && nc -z grafana 10001

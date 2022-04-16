@@ -1,5 +1,4 @@
-use grafana_plugin_sdk::backend::{self, HealthStatus};
-use serde_json::Value;
+use grafana_plugin_sdk::backend;
 
 use crate::connection::Connection;
 
@@ -27,16 +26,8 @@ impl backend::DiagnosticsService for ConsolePlugin {
             })?;
         Ok(Connection::try_connect(url)
             .await
-            .map(|_| {
-                backend::CheckHealthResponse::new(
-                    HealthStatus::Ok,
-                    "Connection successful".to_string(),
-                    Value::Null,
-                )
-            })
-            .unwrap_or_else(|e| {
-                backend::CheckHealthResponse::new(HealthStatus::Error, e.to_string(), Value::Null)
-            }))
+            .map(|_| backend::CheckHealthResponse::ok("Connection successful".to_string()))
+            .unwrap_or_else(|e| backend::CheckHealthResponse::error(e.to_string())))
     }
 
     type CollectMetricsError = Error;

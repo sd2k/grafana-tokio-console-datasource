@@ -9,5 +9,5 @@ providers:
     updateIntervalSeconds: 10
     allowUiUpdates: true
     options:
-      path: /home/grafana/plugins/grafana-tokio-console-datasource/dist/dashboards
+      path: /home/grafana/plugins/bsull-console-datasource/dist/dashboards
 
