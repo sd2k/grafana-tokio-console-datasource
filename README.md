@@ -8,7 +8,28 @@ This is a streaming Grafana data source which can connect to the Tokio [`console
 
 ![image](https://user-images.githubusercontent.com/5464991/146619018-bc1bbe41-7bf3-4a20-8732-a4855ad29bcc.png)
 
-## Getting started
+## Try it out
+
+### Docker
+
+    # On Linux or MacOS
+    docker run --rm -p 3000:3000 sd2k/grafana:with-tokio-console-datasource
+    # Or, on Linux, if you want to access console-enabled processes running on the host
+    docker run --rm --net=host sd2k/grafana:with-tokio-console-datasource
+
+This will start a custom-built Grafana build serving on port 3000 with the Console datasource already installed.
+
+Three datasources will already be configured:
+
+- **Tokio Console - Grafana plugin** - connects to the console-enabled Grafana plugin backend itself, as an example. Note that the plugin serves on `localhost:6668`.
+- **Tokio Console - localhost:6669** - connects to a console-enabled process at `localhost:6669`, the default address
+- **Tokio Console - host.docker.internal:6669** - connects to a console-enabled process at `host.docker.internal:6669`. On MacOS (and possibly Windows - untested) this lets the Grafana process running inside Docker communicate with processes running _outside_ Docker using the special `host.docker.internal` address.
+
+### Installing the plugin on an existing Grafana instance
+
+TODO - the plugin is not yet signed so cannot be easily installed without enabling unsigned plugins on your Grafana instance. Instructions coming soon!
+
+## Development
 
 ### Plugin frontend
 
