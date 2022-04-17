@@ -8,7 +8,7 @@ services:
       - "16686:16686"
 
   grafana:
-    image: grafana/grafana:latest
+    image: sd2k/grafana:table-charts
     ports:
       - "3000:3000"
     restart: on-failure
@@ -23,7 +23,7 @@ services:
       GF_PLUGINS_ENABLE_ALPHA: "true"
       GF_SERVER_ROOT_URL: http://admin:admin@grafana:3000
       JAEGER_AGENT_HOST: "jaeger"
-      RUST_LOG: grafana_plugin_sdk=debug,info
+      RUST_LOG: grafana_tokio_console_datasource=debug,grafana_plugin_sdk=debug,info
     volumes:
       - "./provisioning:/etc/grafana/provisioning"
       - ".:/home/grafana/plugins/bsull-console-datasource"
