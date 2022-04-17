@@ -54,4 +54,5 @@ export interface VariableQuery {
  */
 export interface DataSourceOptions extends DataSourceJsonData {
   url?: string;
+  retainFor?: number;
 }

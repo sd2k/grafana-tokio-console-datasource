@@ -121,7 +121,8 @@ impl Task {
     pub(crate) fn total(&self, since: SystemTime) -> Duration {
         self.stats
             .total
-            .unwrap_or_else(|| since.duration_since(self.stats.created_at).unwrap())
+            .ok_or(|| since.duration_since(self.stats.created_at).ok())
+            .unwrap_or_default()
     }
 
     pub(crate) fn busy(&self, since: SystemTime) -> Duration {
@@ -129,7 +130,7 @@ impl Task {
             (self.stats.last_poll_started, self.stats.last_poll_ended)
         {
             // in this case the task is being polled at the moment
-            let current_time_in_poll = since.duration_since(last_poll_started).unwrap();
+            let current_time_in_poll = since.duration_since(last_poll_started).unwrap_or_default();
             return self.stats.busy + current_time_in_poll;
         }
         self.stats.busy
@@ -138,7 +139,8 @@ impl Task {
     pub(crate) fn idle(&self, since: SystemTime) -> Duration {
         self.stats
             .idle
-            .unwrap_or_else(|| self.total(since).saturating_sub(self.busy(since)))
+            .or_else(|| self.total(since).checked_sub(self.busy(since)))
+            .unwrap_or_default()
     }
 
     /// Returns the total number of times the task has been polled.
@@ -308,7 +310,7 @@ impl From<console_api::tasks::Stats> for TaskStats {
 
         let poll_stats = pb.poll_stats.expect("task should have poll stats");
         let busy = poll_stats.busy_time.map(pb_duration).unwrap_or_default();
-        let idle = total.map(|total| total - busy);
+        let idle = total.map(|total| total.checked_sub(busy).unwrap_or_default());
         Self {
             total,
             idle,
