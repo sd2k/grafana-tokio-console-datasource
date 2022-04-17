@@ -3,8 +3,11 @@ import { DataSourceWithBackend, StreamingFrameAction, StreamingFrameOptions, get
 import { DataSourceOptions, ConsoleQuery, ConsolePathName, VariableQueryPathName, VariableQuery } from './types';
 
 export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOptions> {
+  retainFor?: number;
+
   constructor(instanceSettings: DataSourceInstanceSettings<DataSourceOptions>) {
     super(instanceSettings);
+    this.retainFor = instanceSettings.jsonData.retainFor;
   }
 
   applyTemplateVariables(query: ConsoleQuery): Record<string, any> {
@@ -16,7 +19,11 @@ export class DataSource extends DataSourceWithBackend<ConsoleQuery, DataSourceOp
 
   streamOptionsProvider = (request: DataQueryRequest<ConsoleQuery>): Partial<StreamingFrameOptions> => {
     const shouldOverwrite = request.targets.some((target) => target.path === ConsolePathName.TaskHistogram);
-    return { maxLength: 10000, action: shouldOverwrite ? StreamingFrameAction.Replace : StreamingFrameAction.Append };
+    return {
+      maxLength: 10000,
+      maxDelta: this.retainFor,
+      action: shouldOverwrite ? StreamingFrameAction.Replace : StreamingFrameAction.Append,
+    };
   };
 
   async metricFindQuery(query: VariableQuery): Promise<MetricFindValue[]> {

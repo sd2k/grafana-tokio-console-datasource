@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt,
     io::Cursor,
     str::FromStr,
@@ -194,6 +194,7 @@ impl DatasourceState {
     async fn new(
         datasource_uid: DatasourceUid,
         update: Update,
+        retain_for: Option<Duration>,
     ) -> (Self, mpsc::Receiver<Notification>) {
         let (tasks_frame_tx, tasks_frame_rx) = mpsc::channel(128);
         let (notification_tx, notification_rx) = mpsc::channel(128);
@@ -212,14 +213,14 @@ impl DatasourceState {
             // resources_stream_rx: Default::default(),
             notification_tx,
         };
-        s.update(update).await;
+        s.update(update, retain_for).await;
         (s, notification_rx)
     }
 
     /// Process and update using a general `Update`, which contains information about new and updated
     /// metadata and tasks.
     #[tracing::instrument(level = "debug", skip(self, update))]
-    async fn update(&mut self, update: Update) {
+    async fn update(&mut self, update: Update, retain_for: Option<Duration>) {
         self.last_updated = Some(SystemTime::now());
         if let Some(new_metadata) = update.new_metadata {
             let metas = new_metadata.metadata.into_iter().filter_map(|meta| {
@@ -233,24 +234,33 @@ impl DatasourceState {
 
         if let Some(task_update) = update.task_update {
             let mut stats_update = task_update.stats_update;
-            let mut updated_ids = Vec::with_capacity(task_update.new_tasks.len());
+            let mut updated_ids = HashSet::with_capacity(task_update.new_tasks.len());
             debug!(new_tasks = task_update.new_tasks.len(), "Adding new tasks");
             for new_task in task_update.new_tasks {
                 if let Some(task) = Task::from_proto(&self.metas, &mut stats_update, new_task) {
-                    updated_ids.push(task.id);
+                    updated_ids.insert(task.id);
                     self.tasks.insert(task.id, task);
                 }
             }
             debug!(updated_tasks = stats_update.len(), "Updating task stats");
             for (id, stats) in stats_update {
                 if let Some(task) = self.tasks.get_mut(&TaskId(id)) {
-                    updated_ids.push(task.id);
+                    updated_ids.insert(task.id);
                     task.stats = stats.into();
                 }
             }
 
+            // Add any tasks that are not yet done to the set of tasks to be sent.
+            // This is required so the frontend doesn't remove them from the UI due to
+            // apparent inactivity.
+            for (id, task) in &self.tasks {
+                if !task.is_completed() {
+                    updated_ids.insert(*id);
+                }
+            }
+
             // Send updates to the main 'tasks' stream.
-            let tasks_frame = self.get_tasks_frame(Some(&updated_ids));
+            let tasks_frame = self.get_tasks_frame(Some(&updated_ids), retain_for);
             if let Some(tx) = &self.tasks_frame_tx {
                 if let Err(e) = tx.send(tasks_frame).await {
                     error!(datasource_uid = %self.uid.0, error = %e, "Error sending tasks frame; replacing channel");
@@ -320,14 +330,37 @@ impl DatasourceState {
     }
 
     /// Get a `Frame` containing the latest task data, optionally only for a subset of tasks.
-    fn get_tasks_frame(&self, updated_ids: Option<&[TaskId]>) -> Result<data::Frame, Error> {
-        let len = updated_ids.map_or_else(|| self.tasks.len(), |x| x.len());
+    fn get_tasks_frame<'a, T>(
+        &self,
+        updated_ids: Option<T>,
+        retain_for: Option<Duration>,
+    ) -> Result<data::Frame, Error>
+    where
+        T: IntoIterator<Item = &'a TaskId>,
+        T::IntoIter: ExactSizeIterator,
+    {
+        let now = SystemTime::now();
+        let updated_ids = updated_ids.map(|x| x.into_iter());
+        let len = updated_ids
+            .as_ref()
+            .map_or_else(|| self.tasks.len(), |x| x.len());
         let iter: Box<dyn Iterator<Item = &Task>> = match updated_ids {
-            Some(ids) => Box::new(ids.iter().filter_map(|id| self.tasks.get(id))),
+            Some(ids) => Box::new(ids.filter_map(|id| self.tasks.get(id))),
             None => Box::new(self.tasks.values()),
         };
+        let iter: Box<dyn Iterator<Item = &Task>> = match retain_for {
+            None => iter,
+            Some(retain_for) => Box::new(iter.filter(move |task| {
+                task.stats
+                    .dropped_at
+                    .map(|d| {
+                        let dropped_for = now.duration_since(d).unwrap_or_default();
+                        retain_for > dropped_for
+                    })
+                    .unwrap_or(true)
+            })),
+        };
 
-        let now = Utc::now();
         let mut timestamps = Vec::with_capacity(len);
         let mut ids = Vec::with_capacity(len);
         let mut names = Vec::with_capacity(len);
@@ -432,7 +465,7 @@ impl DatasourceState {
 
     /// Get a `Frame` for a single task.
     fn get_task_details_frame(&self, id: TaskId) -> Result<data::Frame, Error> {
-        self.get_tasks_frame(Some(&[id]))
+        self.get_tasks_frame(Some(&[id]), None)
     }
 
     /// Get a `Frame` holding the buckets and counts of the poll times histogram for
@@ -458,9 +491,9 @@ impl DatasourceState {
     }
 
     /// Convert this state into an owned `Frame`.
-    fn to_frame(&self, path: &Path) -> Result<data::Frame, Error> {
+    fn to_frame(&self, path: &Path, retain_for: Option<Duration>) -> Result<data::Frame, Error> {
         match path {
-            Path::Tasks => self.get_tasks_frame(None),
+            Path::Tasks => self.get_tasks_frame::<&[TaskId]>(None, retain_for),
             Path::TaskDetails { task_id } => self.get_task_details_frame(*task_id),
             Path::TaskHistogram { task_id } => self.get_task_histogram_frame(*task_id),
             Path::Resources => todo!(),
@@ -495,12 +528,18 @@ impl ConsolePlugin {
             .url
             .parse()
             .map_err(|_| Error::InvalidDatasourceUrl(datasource.url))?;
-        info!(url = %url, "Connecting to console");
+        let retain_for = datasource
+            .json_data
+            .get("retainFor")
+            .and_then(|x| x.as_u64())
+            .map(Duration::from_secs);
+
+        info!(url = %url, retain_for = ?retain_for, "Connecting to console");
         let mut connection = Connection::new(url);
         // Get some initial state.
         let update = connection.next_update().await;
         let (instance_state, notification_rx) =
-            DatasourceState::new(datasource_uid.clone(), update).await;
+            DatasourceState::new(datasource_uid.clone(), update, retain_for).await;
         self.state.insert(datasource_uid.clone(), instance_state);
 
         // Spawn a task to continuously fetch updates from the console, and
@@ -523,11 +562,11 @@ impl ConsolePlugin {
                     instrument_update = instance.connection.next_update() => {
                         if let Some(mut s) = state.get_mut(&uid_clone) {
                             // First, update the state with the new and updated task data.
-                            s.update(instrument_update).await;
+                            s.update(instrument_update, retain_for).await;
 
                             // Next check if we need to subscribe to any new task details streams,
                             // or unsubscribe from any finished tasks.
-                            debug!(n_tasks = s.tasks.len(), "checking for old or new tasks");
+                            debug!(n_tasks = s.tasks.len(), "Checking for old or new tasks");
 
                             for (task_id, task) in &s.tasks {
 
@@ -720,7 +759,10 @@ impl ConsolePlugin {
         &self,
         datasource_uid: &DatasourceUid,
         path: &Path,
+        retain_for: Option<Duration>,
     ) -> Option<Result<data::Frame, Error>> {
-        self.state.get(datasource_uid).map(|s| s.to_frame(path))
+        self.state
+            .get(datasource_uid)
+            .map(|s| s.to_frame(path, retain_for))
     }
 }

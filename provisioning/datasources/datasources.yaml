@@ -11,13 +11,19 @@ datasources:
     access: proxy
     url: http://127.0.0.1:6668
     isDefault: true
+    jsonData:
+      retainFor: 6
   - name: Tokio Console - localhost:6669
     type: bsull-console-datasource
     uid: tokiodefault
     access: proxy
     url: http://127.0.0.1:6669
+    jsonData:
+      retainFor: 6
   - name: Tokio Console - host.docker.internal:6669
     type: bsull-console-datasource
     uid: tokiodefaultmacos
     access: proxy
     url: http://host.docker.internal:6669
+    jsonData:
+      retainFor: 6

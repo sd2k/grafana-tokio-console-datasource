@@ -2,6 +2,7 @@
 use std::{
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
 
 use futures::Stream;
@@ -94,11 +95,16 @@ impl backend::StreamService for ConsolePlugin {
             .plugin_context
             .datasource_instance_settings
             .ok_or(Error::MissingDatasource)?;
+        let retain_for = datasource_settings
+            .json_data
+            .get("retainFor")
+            .and_then(|x| x.as_u64())
+            .map(Duration::from_secs);
 
         // Check if we're already connected to this datasource instance and getting updates.
         // If so, we should just return the current state as `initial_data`.
         // If not, we should spawn a task to start populating the datasource instance's state.
-        let initial_data = match self.initial_data(&uid, &path) {
+        let initial_data = match self.initial_data(&uid, &path, retain_for) {
             Some(s) => s,
             None => {
                 info!("No state found; connecting to console");
@@ -110,7 +116,7 @@ impl backend::StreamService for ConsolePlugin {
                     .get(&uid)
                     // Invariant: self.connect will create the state for this uid.
                     .expect("state to be present")
-                    .to_frame(&path)
+                    .to_frame(&path, retain_for)
             }
         };
 
