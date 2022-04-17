@@ -890,24 +890,6 @@
             ],
             "fields": {}
           }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "greater",
-                  "options": {
-                    "value": 1
-                  }
-                },
-                "fieldName": "Polls"
-              }
-            ],
-            "match": "any",
-            "type": "include"
-          }
         }
       ],
       "type": "table"
