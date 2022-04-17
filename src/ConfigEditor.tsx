@@ -5,12 +5,11 @@ import { LegacyForms } from '@grafana/ui';
 
 const { FormField } = LegacyForms;
 
-interface Props extends DataSourcePluginOptionsEditorProps<DataSourceOptions> { }
+interface Props extends DataSourcePluginOptionsEditorProps<DataSourceOptions> {}
 
-interface State { }
+interface State {}
 
 export class ConfigEditor extends PureComponent<Props, State> {
-
   onURLChange(event: ChangeEvent<HTMLInputElement>) {
     const { options, onOptionsChange } = this.props;
     options.url = event.target.value;
@@ -21,7 +20,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { options, onOptionsChange } = this.props;
     const jsonData = {
       ...options.jsonData,
-      retainFor: parseInt(event.target.value),
+      retainFor: parseInt(event.target.value, 10),
     };
     onOptionsChange({ ...options, jsonData });
   }
