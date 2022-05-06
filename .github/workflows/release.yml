@@ -244,7 +244,9 @@ jobs:
           if-no-files-found: error
 
       - name: Lint plugin
-        uses: grafana/plugin-validator@06f4f8c5a0b9fe6d5641ce6cbd6d439f4082378b
+        uses: grafana/plugin-validator@f2b009a3b3d82552c94ac89ed525ab9fc5efade8
+        with:
+          package: ${{ steps.metadata.outputs.archive }}
 
       - name: Create release
         id: create_release
