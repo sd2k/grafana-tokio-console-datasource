@@ -646,6 +646,22 @@
                 "value": 192
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Poll times"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "bar-chart"
+              },
+              {
+                "id": "custom.width",
+                "value": 330
+              }
+            ]
           }
         ]
       },
@@ -724,6 +740,12 @@
                 "operation": "aggregate"
               },
               "Name": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Poll times": {
                 "aggregations": [
                   "lastNotNull"
                 ],
@@ -837,6 +859,7 @@
               "Idle (lastNotNull)": 5,
               "Location (lastNotNull)": 8,
               "Name (lastNotNull)": 2,
+              "Poll times (lastNotNull)": 9,
               "Polls (lastNotNull)": 6,
               "State (lastNotNull)": 1,
               "Target (lastNotNull)": 7,
@@ -848,11 +871,24 @@
               "Idle (lastNotNull)": "Idle",
               "Location (lastNotNull)": "Location",
               "Name (lastNotNull)": "Name",
+              "Poll times (lastNotNull)": "Poll times",
               "Polls (lastNotNull)": "Polls",
               "State (lastNotNull)": "State",
               "Target (lastNotNull)": "Target",
               "Total (lastNotNull)": "Total"
             }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "other",
+                "targetField": "Poll times"
+              }
+            ],
+            "fields": {}
           }
         }
       ],

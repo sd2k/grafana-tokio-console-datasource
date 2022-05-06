@@ -27,7 +27,7 @@ Three datasources will already be configured:
 
 ### Installing the plugin on an existing Grafana instance
 
-TODO - the plugin is not yet signed so cannot be easily installed without enabling unsigned plugins on your Grafana instance. Instructions coming soon!
+The plugin is available on the [Grafana plugin marketplace](https://grafana.com/grafana/plugins/) so can be installed from there similarly to any other plugin.
 
 ## Development
 
