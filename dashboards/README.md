@@ -1,0 +1,1 @@
+This directory contains dashboards that use unreleased Grafana features, namely [area and bar charts in tables](https://github.com/grafana/grafana/pull/41994). The dashboards are otherwise identical to those included with the plugin, but would fail to load if used on a version of Grafana built without that functionality merged in, so are only included in the custom Docker builds.
