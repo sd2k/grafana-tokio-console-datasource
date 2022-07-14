@@ -175,7 +175,9 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Build and test frontend
-        run: yarn build
+        run: |
+          mv PLUGIN.md README.md
+          yarn build
 
       - name: Download
         uses: actions/download-artifact@v3
@@ -228,7 +230,6 @@ jobs:
       - name: Package plugin
         id: package-plugin
         run: |
-          cp PLUGIN.md dist/README.md
           mv dist ${{ steps.metadata.outputs.plugin-id }}
           zip ${{ steps.metadata.outputs.archive }} ${{ steps.metadata.outputs.plugin-id }} -r
           md5sum ${{ steps.metadata.outputs.archive }} > ${{ steps.metadata.outputs.archive-checksum }}
