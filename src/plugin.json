@@ -8,7 +8,7 @@
   "streaming": true,
   "executable": "grafana-tokio-console-datasource",
   "dependencies": {
-    "grafanaDependency": "^8.4.0"
+    "grafanaDependency": ">=8.4.0"
   },
   "info": {
     "description": "Tokio Console datasource for Grafana",
