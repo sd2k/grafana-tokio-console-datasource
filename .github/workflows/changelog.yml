@@ -1,0 +1,19 @@
+name: Ensure CHANGELOG updated
+
+on:
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened, labeled, unlabeled ]
+    branches: [ main ]
+
+jobs:
+  changelog:
+    name: Ensure changelog updated
+    runs-on: ubuntu-latest
+    steps:
+      - name: Changelog check
+        uses: Zomzog/changelog-checker@v1.2.0
+        with:
+          fileName: CHANGELOG.md
+          noChangelogLabel: no-changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
