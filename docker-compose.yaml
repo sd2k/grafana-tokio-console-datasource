@@ -8,7 +8,8 @@ services:
       - "16686:16686"
 
   grafana:
-    image: sd2k/grafana:table-charts
+    # image: sd2k/grafana:table-charts
+    image: grafana/grafana:9.0.7
     ports:
       - "3000:3000"
     restart: on-failure
