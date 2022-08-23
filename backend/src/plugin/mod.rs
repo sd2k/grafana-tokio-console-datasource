@@ -8,7 +8,10 @@ use std::{
 };
 
 use chrono::prelude::*;
-use console_api::{instrument::Update, tasks::TaskDetails};
+use console_api::{
+    instrument::Update,
+    tasks::{task_details::PollTimesHistogram, TaskDetails},
+};
 use dashmap::DashMap;
 use futures::{StreamExt, TryStreamExt};
 use grafana_plugin_sdk::{backend, data, prelude::*};
@@ -291,7 +294,7 @@ impl DatasourceState {
     async fn update_details(&mut self, update: TaskDetails) {
         if let TaskDetails {
             task_id: Some(id),
-            poll_times_histogram: Some(data),
+            poll_times_histogram: Some(histogram),
             ..
         } = update
         {
@@ -303,9 +306,18 @@ impl DatasourceState {
             if let Some(task) = self.tasks.get_mut(&task_id) {
                 // Update our own state.
                 trace!(task_id = %task_id, "Updating poll times histogram for task");
-                task.histogram = hdrhistogram::serialization::Deserializer::new()
-                    .deserialize(&mut Cursor::new(&data))
-                    .ok();
+                task.histogram = match histogram {
+                    PollTimesHistogram::LegacyHistogram(data) => {
+                        hdrhistogram::serialization::Deserializer::new()
+                            .deserialize(&mut Cursor::new(&data))
+                            .ok()
+                    }
+                    PollTimesHistogram::Histogram(x) => {
+                        hdrhistogram::serialization::Deserializer::new()
+                            .deserialize(&mut Cursor::new(&x.raw_histogram))
+                            .ok()
+                    }
+                };
                 should_send_histogram = true;
             }
 
