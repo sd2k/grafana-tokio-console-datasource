@@ -18,16 +18,20 @@ impl backend::DataQueryError for QueryError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-struct ConsoleQueryDataRequest {
+pub struct ConsoleQueryDataRequest {
     #[serde(flatten)]
     path: Path,
 }
 
 #[backend::async_trait]
 impl backend::DataService for ConsolePlugin {
+    type Query = ConsoleQueryDataRequest;
     type QueryError = QueryError;
     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, mut request: backend::QueryDataRequest) -> Self::Stream {
+    async fn query_data(
+        &self,
+        mut request: backend::QueryDataRequest<Self::Query>,
+    ) -> Self::Stream {
         Box::pin(
             request
                 .queries
@@ -38,17 +42,13 @@ impl backend::DataService for ConsolePlugin {
                         .datasource_instance_settings
                         .take()
                         .map(|x| x.uid);
-                    async {
+                    async move {
                         let uid = uid.ok_or_else(|| QueryError {
                             ref_id: x.ref_id.clone(),
                         })?;
                         let mut frame = data::Frame::new("");
 
-                        if let Ok(path) = serde_json::from_value(x.json)
-                            .map(|req: ConsoleQueryDataRequest| req.path)
-                        {
-                            frame.set_channel(format!("ds/{}/{}", uid, path).parse().unwrap());
-                        }
+                        frame.set_channel(format!("ds/{}/{}", uid, x.query.path).parse().unwrap());
 
                         Ok(backend::DataResponse::new(
                             x.ref_id,
