@@ -92,8 +92,8 @@ impl fmt::Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Tasks => write!(f, "tasks"),
-            Self::TaskDetails { task_id } => write!(f, "task/{}", task_id),
-            Self::TaskHistogram { task_id } => write!(f, "taskHistogram/{}", task_id),
+            Self::TaskDetails { task_id } => write!(f, "task/{task_id}"),
+            Self::TaskHistogram { task_id } => write!(f, "taskHistogram/{task_id}"),
             Self::Resources => write!(f, "resources"),
         }
     }

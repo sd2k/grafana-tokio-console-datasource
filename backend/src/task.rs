@@ -258,7 +258,7 @@ fn format_location(loc: Option<Location>) -> String {
             let truncated = truncate_registry_path(file);
             l.file = Some(truncated);
         }
-        format!("{} ", l)
+        format!("{l} ")
     })
     .unwrap_or_else(|| "<unknown location>".to_string())
 }
@@ -378,9 +378,7 @@ impl Field {
                     debug_assert_eq!(
                         meta_id,
                         Some(meta.id.0),
-                        "malformed field name: metadata ID mismatch! (name idx={}; metadata={:#?})",
-                        idx,
-                        meta,
+                        "malformed field name: metadata ID mismatch! (name idx={idx}; metadata={meta:#?})",
                     );
                     return None;
                 }
@@ -402,9 +400,7 @@ impl Field {
 
         debug_assert!(
             value.is_some(),
-            "missing field value for field `{:?}` (metadata={:#?})",
-            name,
-            meta,
+            "missing field value for field `{name:?}` (metadata={meta:#?})",
         );
         let mut value = FieldValue::from(value?)
             // if the value is an empty string, just skip it.
