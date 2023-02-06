@@ -26,9 +26,7 @@ impl Percentage for f64 {
 pub fn percentage(total: f64, amount: f64) -> f64 {
     debug_assert!(
         total >= amount,
-        "assertion failed: total >= amount; total={}, amount={}",
-        total,
-        amount
+        "assertion failed: total >= amount; total={total}, amount={amount}",
     );
     (amount / total) * 100.0
 }

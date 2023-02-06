@@ -36,9 +36,7 @@ fn watch(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Error>> {
         ("build", "debug")
     };
     let shell_cmd = format!(
-        "rm -rf ./dist/grafana-tokio-console-datasource_{0} && cp ./target/{1}/grafana-tokio-console-datasource ./dist/grafana-tokio-console-datasource_{0} && pkill -HUP grafana-tokio-console-datasource_{0}",
-        go_target,
-        cargo_target,
+        "rm -rf ./dist/grafana-tokio-console-datasource_{go_target} && cp ./target/{cargo_target}/grafana-tokio-console-datasource ./dist/grafana-tokio-console-datasource_{go_target} && pkill -HUP grafana-tokio-console-datasource_{go_target}",
     );
     let mut handle = Command::new("cargo")
         .arg("watch")
